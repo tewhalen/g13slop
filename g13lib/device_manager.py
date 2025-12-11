@@ -25,7 +25,8 @@ class G13Manager:
     led_status: list[int]
     console: LogEmulator
     usb_device: usb.core.Device
-    _joystick_codes: set[str]
+    _joy_x_zero: bool = True
+    _joy_y_zero: bool = True
 
     def __init__(self):
         self.console = LogEmulator()
@@ -36,17 +37,15 @@ class G13Manager:
     def joystick_position(self, bytes: Sequence[int]):
         """If the joystick has moved significantly, yield corresponding codes."""
         joy_x, joy_y = bytes[1], bytes[2]
-        new_codes = set(self.joy_position_to_codes(joy_x, joy_y))
 
-        for code in new_codes:
-            if code not in self._joystick_codes:
-                yield code
-        self._joystick_codes = new_codes
+        for code in self.joy_position_to_codes(joy_x, joy_y):
+
+            yield code
 
     def joy_position_to_codes(self, joy_x: int, joy_y: int):
         # joystick positions are betwen 0x00 and 0xFF
 
-        codes = ["NEG_3", "NEG_2", "NEG_1", None, "POS_1", "POS_2", "POS_3"]
+        codes = ["NEG_3", "NEG_2", "NEG_1", "ZERO_0", "POS_1", "POS_2", "POS_3"]
         thresholds = [0x25, 0x50, 0x60, 0x80, 0xA0, 0xC0]
         # the y axis is reversed
 
@@ -56,11 +55,24 @@ class G13Manager:
         if x_index < len(codes):
             code = codes[x_index]
             if code:
-                yield f"JOY_X_{code}"
+
+                if code.startswith("ZERO"):
+                    if not self._joy_x_zero:
+                        yield f"JOY_X_{code}"
+                        self._joy_x_zero = True
+                else:
+                    self._joy_x_zero = False
+                    yield f"JOY_X_{code}"
         if y_index < len(codes):
             code = list(reversed(codes))[y_index]
             if code:
-                yield f"JOY_Y_{code}"
+                if code.startswith("ZERO"):
+                    if not self._joy_y_zero:
+                        yield f"JOY_Y_{code}"
+                        self._joy_y_zero = True
+                else:
+                    self._joy_y_zero = False
+                    yield f"JOY_Y_{code}"
 
     def determine_keycodes(self, bytes: Sequence[int]):
         # for each keycode in the keycodes dict
