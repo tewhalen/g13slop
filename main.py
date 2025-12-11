@@ -1,9 +1,13 @@
+import bisect
 import errno
+import time
 from typing import Sequence
 
 import usb.core
 import usb.util
+from loguru import logger
 
+import g13lib.data
 from g13lib.render_fb import ImageToLPBM
 from g13lib.terminal import LogEmulator
 
@@ -11,54 +15,53 @@ product_id = "0xc21c"
 vendor_id = "0x046d"
 
 
-# keycode: byte, bit
-keycodes = {
-    "G1": (3, 0),
-    "G2": (3, 1),
-    "G3": (3, 2),
-    "G4": (3, 3),
-    "G5": (3, 4),
-    "G6": (3, 5),
-    "G7": (3, 6),
-    "G8": (3, 7),
-    "G9": (4, 0),
-    "G10": (4, 1),
-    "G11": (4, 2),
-    "G12": (4, 3),
-    "G13": (4, 4),
-    "G14": (4, 5),
-    "G15": (4, 6),
-    "G16": (4, 7),
-    "G17": (5, 0),
-    "G18": (5, 1),
-    "G19": (5, 2),
-    "G20": (5, 3),
-    "G21": (5, 4),
-    "G22": (5, 5),
-    "BD": (6, 0),
-    "L1": (6, 1),
-    "L2": (6, 2),
-    "L3": (6, 3),
-    "L4": (6, 4),
-    "M1": (6, 5),
-    "M2": (6, 6),
-    "M3": (6, 7),
-    "MR": (7, 0),
-    "THUMB_LEFT": (7, 1),
-    "THUMB_RIGHT": (7, 2),
-    "THUMB_STICK": (7, 3),
-}
-
-
 class G13Manager:
 
-    held_keys: set
-    led_status = [0, 0, 0, 0]
+    held_keys: set[str]
+    led_status: list[int]
     console: LogEmulator
+    usb_device: usb.core.Device
+    _joystick_codes: set[str]
 
-    def determine_keycode(self, bytes: Sequence[int]):
+    def __init__(self):
+        self.console = LogEmulator()
+        self.held_keys = set()
+        self.led_status = [0, 0, 0, 0]
+        self._joystick_codes = set()
+
+    def joystick_position(self, bytes: Sequence[int]):
+        # determine if the joystick has moved
+        # or has returned to center
+        joy_x, joy_y = bytes[1], bytes[2]
+        new_codes = set(self.joy_position_to_codes(joy_x, joy_y))
+
+        for code in new_codes:
+            if code not in self._joystick_codes:
+                yield code
+        self._joystick_codes = new_codes
+
+    def joy_position_to_codes(self, joy_x: int, joy_y: int):
+        # joystick positions are betwen 0x00 and 0xFF
+
+        codes = ["NEG_3", "NEG_2", "NEG_1", None, "POS_1", "POS_2", "POS_3"]
+        thresholds = [0x25, 0x50, 0x60, 0x80, 0xA0, 0xC0]
+        # the y axis is reversed
+
+        # look up x value in x_thresholds and yield corresponding keycode
+        x_index = bisect.bisect_left(thresholds, joy_x)
+        y_index = bisect.bisect_left(thresholds, joy_y)
+        if x_index < len(codes):
+            code = codes[x_index]
+            if code:
+                yield f"JOY_X_{code}"
+        if y_index < len(codes):
+            code = list(reversed(codes))[y_index]
+            if code:
+                yield f"JOY_Y_{code}"
+
+    def determine_keycodes(self, bytes: Sequence[int]):
         # for each keycode in the keycodes dict
-        for key, (byte, bit_position) in keycodes.items():
+        for key, (byte, bit_position) in g13lib.data.keycodes.items():
             # if the bits set in the keycode are present in bytes
             mask = 1 << (bit_position)
             if bytes[byte] & mask:
@@ -67,19 +70,15 @@ class G13Manager:
 
     def key_events(self, bytes: Sequence[int]):
         seen_keys = set()
-        for key in self.determine_keycode(bytes):
+        for key in self.determine_keycodes(bytes):
             seen_keys.add(key)
-        # release held but unseen keys
+        # release held but now unseen keys
         for released_key in self.held_keys.difference(seen_keys):
             yield f"{released_key}_RELEASED"
 
         for key in seen_keys.difference(self.held_keys):
             yield f"{key}_PRESSED"
         self.held_keys = seen_keys
-
-    def __init__(self):
-        self.console = LogEmulator()
-        self.held_keys = set()
 
     def print(self, message: str):
         self.console.output(message)
@@ -88,37 +87,67 @@ class G13Manager:
         self.setLCD(ImageToLPBM(image))
 
     def start(self):
-        # HID device for key input
-        # self.start_hid_device()
+
         self.start_usb_device()
 
     def start_usb_device(self):
         # USB device for control transfers (LCD, LEDs, backlight)
-        self.usb_device = usb.core.find(idVendor=0x046D, idProduct=0xC21C)
-        if self.usb_device is None:
+        usb_device = usb.core.find(idVendor=0x046D, idProduct=0xC21C)
+        if usb_device is None:
             raise ValueError("G13 device not found")
-
+        elif type(usb_device) is not usb.core.Device:
+            raise ValueError("Invalid USB device")
+        # okay, great
+        self.usb_device = usb_device
         if self.usb_device.is_kernel_driver_active(0):
             self.usb_device.detach_kernel_driver(0)
         cfg = usb.util.find_descriptor(self.usb_device)
         self.usb_device.set_configuration(cfg)
 
-    def read_data(self):
+    def read_data_loop(self):
+        """Currently this is a loop that reads data from the USB device."""
+        # probably we should be using an interrupt?
+        error_count = 0
         while True:
-            d = None
+            if error_count > 5:
+                # give up
+                break
+            time.sleep(0.001)
             try:
-                d = self.usb_device.read(0x81, 8, 100)
+                read_result = self.read_data()
             except usb.core.USBError as e:
-                if e.errno == errno.ETIMEDOUT:  # Timeout error
+                if e.errno in (errno.EPIPE, errno.EIO):  # pipe error?
+                    error_count += 1
+                    logger.error("USB Error: %s, resetting", e)
+                    self.usb_device.reset()
+                    continue
+            if read_result:
+                result_found = False
+                events = list(self.key_events(read_result))
+                if events:
+                    result_found = True
+                    self.print(repr(events))
+                joy_events = list(self.joystick_position(read_result))
+                if joy_events:
+                    result_found = True
+                    self.print(repr(joy_events))
+                if not result_found:
                     pass
-                else:
-                    raise
-            if d:
-                res = list(self.key_events(d))
-                if res:
-                    self.print(repr(res))
-                else:
-                    print_as_decoded_bytes(d)
+                    # print_as_decoded_bytes(read_result)
+
+    def read_data(self) -> list[int]:
+        """Read 8 bytes from the USB device."""
+
+        d = None
+        try:
+            d = self.usb_device.read(0x81, 8, 100)
+        except usb.core.USBError as e:
+            if e.errno == errno.ETIMEDOUT:  # Timeout error
+                pass
+
+            else:
+                raise
+        return d
 
     def toggle_led(self, led_no: int):
         self.led_status[led_no] = 1 - self.led_status[led_no]
@@ -184,6 +213,6 @@ if __name__ == "__main__":
 
     try:
 
-        m.read_data()
+        m.read_data_loop()
     finally:
         m.close()
