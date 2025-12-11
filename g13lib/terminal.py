@@ -18,7 +18,7 @@ class LogEmulator:
             if self.autowrap:
                 for sub_line in itertools.batched(line, self.width):
                     sub_line = "".join(sub_line)
-                    print(sub_line)
+                    # print(sub_line)
                     lines.append(sub_line.ljust(self.width)[: self.width])
             else:
                 lines.append(line.ljust(self.width)[: self.width])
