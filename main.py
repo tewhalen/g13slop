@@ -3,7 +3,7 @@ import time
 from loguru import logger
 
 from g13lib.device_manager import G13Manager, G13USBError
-from g13lib.input_manager import InputManager
+from g13lib.input_manager import EndProgram, InputManager
 
 
 def read_data_loop(device_manager: G13Manager, input_manager: InputManager):
@@ -26,10 +26,14 @@ def read_data_loop(device_manager: G13Manager, input_manager: InputManager):
 
 if __name__ == "__main__":
     m = G13Manager()
+    processor = InputManager(m)
     m.start()
 
     try:
 
-        read_data_loop(m, InputManager())
+        read_data_loop(m, processor)
+    except EndProgram:
+        m.print("That's all!")
+        logger.success("Exiting...")
     finally:
         m.close()

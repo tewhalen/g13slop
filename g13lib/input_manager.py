@@ -7,18 +7,25 @@ def split_joystick_code(code: str) -> tuple[str, str, str]:
     return j_axis, j_direction, j_value
 
 
+class EndProgram(Exception):
+    pass
+
+
 class InputManager:
+    """Receives codes from the device and outputs keyboard and mouse events."""
 
     direct_mapping: dict[str, str] = {"G12": "a"}
     keyboard: pynput.keyboard.Controller
+    mouse: pynput.mouse.Controller
     previous_joystick_positions: tuple[str | None, str | None] = (
         "JOY_X_ZERO_0",
         "JOY_Y_ZERO_0",
     )
 
-    def __init__(self):
+    def __init__(self, device):
         self.keyboard = pynput.keyboard.Controller()
         self.mouse = pynput.mouse.Controller()
+        self.device = device
 
     def handle_input(self, code: str):
 
@@ -38,6 +45,14 @@ class InputManager:
                 self.keyboard.press(output_key)
             elif action == "RELEASED":
                 self.keyboard.release(output_key)
+        elif key_code == "BD":
+
+            raise EndProgram()
+
+        elif key_code == "M1":
+            self.device.set_status("Well now")
+        elif key_code == "M2":
+            self.device.clear_status()
 
     def handle_joystick(self, code: str):
         """Take in a joystick code and handle it accordingly."""

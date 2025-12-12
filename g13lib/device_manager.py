@@ -101,6 +101,18 @@ class G13Manager:
         image.save("default_font_output.png")
         self.setLCD(ImageToLPBM(image))
 
+    def set_status(self, status: str):
+        self.console.set_status(status)
+        image = self.console.draw_buffer()
+        image.save("default_font_output.png")
+        self.setLCD(ImageToLPBM(image))
+
+    def clear_status(self):
+        self.console.clear_status()
+        image = self.console.draw_buffer()
+        image.save("default_font_output.png")
+        self.setLCD(ImageToLPBM(image))
+
     def start(self):
 
         self.start_usb_device()
