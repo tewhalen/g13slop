@@ -15,22 +15,41 @@ class EndProgram(Exception):
 class InputManager:
     """Receives codes from the device and outputs keyboard and mouse events."""
 
-    direct_mapping: dict[str, str] = {"G12": "a"}
+    direct_mapping: dict[
+        str, str | pynput.keyboard.Key | tuple[pynput.keyboard.Key | str, ...]
+    ] = {
+        "G1": (pynput.keyboard.Key.cmd, "z"),
+        "G2": (pynput.keyboard.Key.shift, pynput.keyboard.Key.cmd, "z"),
+        "G3": (pynput.keyboard.Key.cmd, "="),
+        "G5": (pynput.keyboard.Key.cmd, "-"),
+        "G8": (pynput.keyboard.Key.cmd, "c"),
+        "G9": (pynput.keyboard.Key.cmd, "v"),
+        "G10": pynput.keyboard.Key.left,
+        "G11": pynput.keyboard.Key.space,
+        "G12": pynput.keyboard.Key.right,
+        "G15": pynput.keyboard.Key.shift,
+    }
     keyboard: pynput.keyboard.Controller
     mouse: pynput.mouse.Controller
     previous_joystick_positions: tuple[str | None, str | None] = (
         "JOY_X_ZERO_0",
         "JOY_Y_ZERO_0",
     )
+    active: bool = True
 
-    def __init__(self, device):
+    def __init__(self):
         self.keyboard = pynput.keyboard.Controller()
         self.mouse = pynput.mouse.Controller()
-        self.device = device
 
         blinker.signal("app_changed").connect(self.app_changed)
         blinker.signal("g13_key").connect(self.handle_keystroke)
         blinker.signal("g13_joy").connect(self.handle_joystick)
+
+    def activate(self, msg):
+        self.active = True
+
+    def deactivate(self, msg):
+        self.active = False
 
     def handle_input(self, code: str):
 
@@ -42,10 +61,20 @@ class InputManager:
     def handle_keystroke(self, code: str):
         # code will end in either '_PRESSED' or '_RELEASED'
         # split and handle accordingly
+        if not self.active:
+            return
         action = code.split("_")[-1]
         key_code = "_".join(code.split("_")[:-1])
         output_key = self.direct_mapping.get(key_code)
-        if output_key:
+        if type(output_key) is tuple:
+            if action == "PRESSED":
+                # multi-code events are only executed on press
+                # hold each in turn
+                for key in output_key:
+                    self.keyboard.press(key)
+                for key in reversed(output_key):
+                    self.keyboard.release(key)
+        elif output_key:
             if action == "PRESSED":
                 self.keyboard.press(output_key)
             elif action == "RELEASED":
@@ -58,10 +87,13 @@ class InputManager:
             blinker.signal("g13_status").send("Well now")
         elif key_code == "M2":
             blinker.signal("g13_clear_status").send()
-        blinker.signal("g13_print").send(code)
+        else:
+            blinker.signal("g13_print").send(code)
 
     def handle_joystick(self, code: str):
         """Take in a joystick code and handle it accordingly."""
+        if not self.active:
+            return
         # let's start simple.... generate a mouse scroll event
         # if the JOY code moves from 0 or 1 to 2
         j_axis, j_direction, j_value = split_joystick_code(code)
@@ -105,3 +137,10 @@ class InputManager:
         # in the future this will change profiles
         # for now just print the name of the app
         blinker.signal("g13_print").send(app_name)
+
+
+class GeneralManager(InputManager):
+    def __init__(self):
+        super().__init__()
+        blinker.signal("release_focus").connect(self.activate)
+        blinker.signal("single_focus").connect(self.deactivate)

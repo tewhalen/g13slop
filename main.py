@@ -4,8 +4,9 @@ import blinker
 from AppKit import NSWorkspace
 from loguru import logger
 
+from g13lib.davinci_input import DavinciInputManager
 from g13lib.device_manager import G13Manager, G13USBError
-from g13lib.input_manager import EndProgram, InputManager
+from g13lib.input_manager import EndProgram, GeneralManager
 
 
 class AppMonitor:
@@ -35,9 +36,7 @@ class AppMonitor:
         return False
 
 
-def read_data_loop(
-    device_manager: G13Manager, input_manager: InputManager, app_monitor: AppMonitor
-):
+def read_data_loop(device_manager: G13Manager, app_monitor: AppMonitor):
     """Currently this is a loop that reads data from the USB device."""
     # probably we should be using an interrupt?
     error_count = 0
@@ -56,15 +55,17 @@ def read_data_loop(
 
 if __name__ == "__main__":
     m = G13Manager()
-    processor = InputManager(m)
+    processor = DavinciInputManager()
     a = AppMonitor()
+    general = GeneralManager()
     m.start()
 
     try:
 
-        read_data_loop(m, processor, a)
+        read_data_loop(m, a)
     except EndProgram:
-        blinker.signal("g13_print").send("That's all!")
+        blinker.signal("g13_clear_status").send()
+        blinker.signal("g13_print").send("That's all!\n \n ")
         logger.success("Exiting...")
     finally:
         m.close()

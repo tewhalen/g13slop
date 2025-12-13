@@ -129,7 +129,7 @@ class G13Manager:
                 logger.error("USB Error: %s, resetting", e)
                 self.usb_device.reset()
                 yield G13USBError(str(e))
-
+                return
         if read_result:
 
             events = list(self.key_events(read_result))
