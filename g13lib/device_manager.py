@@ -36,6 +36,9 @@ class G13Manager:
         self.led_status = [0, 0, 0, 0]
         self._joystick_codes = set()
         blinker.signal("g13_framebuffer").connect(self.console_refresh)
+        blinker.signal("led_toggle").connect(self.toggle_led)
+        blinker.signal("led_on").connect(self.led_on)
+        blinker.signal("led_off").connect(self.led_off)
 
     def joystick_position(self, bytes: Sequence[int]):
         """If the joystick has moved significantly, yield corresponding codes."""
@@ -100,7 +103,7 @@ class G13Manager:
 
     def console_refresh(self, image: PIL.Image.Image):
 
-        image.save("default_font_output.png")
+        # image.save("default_font_output.png")
         self.setLCD(ImageToLPBM(image))
 
     def start(self):
@@ -126,7 +129,7 @@ class G13Manager:
             read_result = self.read_data()
         except usb.core.USBError as e:
             if e.errno in (errno.EPIPE, errno.EIO):  # pipe error?
-                logger.error("USB Error: %s, resetting", e)
+                logger.error("USB Error: {}, resetting", e)
                 self.usb_device.reset()
                 yield G13USBError(str(e))
                 return
@@ -160,6 +163,14 @@ class G13Manager:
 
     def toggle_led(self, led_no: int):
         self.led_status[led_no] = 1 - self.led_status[led_no]
+        self.update_leds()
+
+    def led_on(self, led_no: int):
+        self.led_status[led_no] = 1
+        self.update_leds()
+
+    def led_off(self, led_no: int):
+        self.led_status[led_no] = 0
         self.update_leds()
 
     def update_leds(self):

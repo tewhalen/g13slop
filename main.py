@@ -4,7 +4,7 @@ import blinker
 from AppKit import NSWorkspace
 from loguru import logger
 
-from g13lib.davinci_input import DavinciInputManager
+from g13lib.apps.davinci_resolve import DavinciInputManager
 from g13lib.device_manager import G13Manager, G13USBError
 from g13lib.input_manager import EndProgram, GeneralManager
 

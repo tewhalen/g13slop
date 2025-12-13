@@ -19,11 +19,13 @@ class SingleAppManager(InputManager):
         self.active = True
         blinker.signal("single_focus").send(self.app_name)
         blinker.signal("g13_status").send(f"{self.app_name}")
+        blinker.signal("led_on").send(0)
 
     def deactivate(self):
         self.active = False
         blinker.signal("release_focus").send(self.app_name)
         blinker.signal("g13_clear_status").send()
+        blinker.signal("led_off").send(0)
 
     def app_changed(self, app_name: str):
         logger.info("Switching to app: {}", app_name)
@@ -31,19 +33,3 @@ class SingleAppManager(InputManager):
             self.activate()
         else:
             self.deactivate()
-
-
-class DavinciInputManager(SingleAppManager):
-    app_name = "DaVinci Resolve"
-    direct_mapping = {
-        "G1": keylib.undo,
-        "G2": keylib.redo,
-        "G3": keylib.zoom_in,
-        "G5": keylib.zoom_out,
-        "G8": keylib.copy,
-        "G9": keylib.paste,
-        "G10": pynput.keyboard.Key.left,
-        "G11": pynput.keyboard.Key.space,
-        "G12": pynput.keyboard.Key.right,
-        "G15": pynput.keyboard.Key.shift,
-    }
