@@ -1,3 +1,4 @@
+import blinker
 import pynput
 from loguru import logger
 
@@ -27,6 +28,10 @@ class InputManager:
         self.mouse = pynput.mouse.Controller()
         self.device = device
 
+        blinker.signal("app_changed").connect(self.app_changed)
+        blinker.signal("g13_key").connect(self.handle_keystroke)
+        blinker.signal("g13_joy").connect(self.handle_joystick)
+
     def handle_input(self, code: str):
 
         if code.startswith("JOY"):
@@ -50,9 +55,10 @@ class InputManager:
             raise EndProgram()
 
         elif key_code == "M1":
-            self.device.set_status("Well now")
+            blinker.signal("g13_status").send("Well now")
         elif key_code == "M2":
-            self.device.clear_status()
+            blinker.signal("g13_clear_status").send()
+        blinker.signal("g13_print").send(code)
 
     def handle_joystick(self, code: str):
         """Take in a joystick code and handle it accordingly."""
@@ -94,3 +100,8 @@ class InputManager:
                 self.previous_joystick_positions[0],
                 code,
             )
+
+    def app_changed(self, app_name: str):
+        # in the future this will change profiles
+        # for now just print the name of the app
+        blinker.signal("g13_print").send(app_name)

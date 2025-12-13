@@ -3,6 +3,8 @@ import errno
 import time
 from typing import Sequence
 
+import blinker
+import PIL.Image
 import usb.core
 import usb.util
 from loguru import logger
@@ -33,6 +35,7 @@ class G13Manager:
         self.held_keys = set()
         self.led_status = [0, 0, 0, 0]
         self._joystick_codes = set()
+        blinker.signal("g13_framebuffer").connect(self.console_refresh)
 
     def joystick_position(self, bytes: Sequence[int]):
         """If the joystick has moved significantly, yield corresponding codes."""
@@ -95,21 +98,8 @@ class G13Manager:
             yield f"{key}_PRESSED"
         self.held_keys = seen_keys
 
-    def print(self, message: str):
-        self.console.output(message)
-        image = self.console.draw_buffer()
-        image.save("default_font_output.png")
-        self.setLCD(ImageToLPBM(image))
+    def console_refresh(self, image: PIL.Image.Image):
 
-    def set_status(self, status: str):
-        self.console.set_status(status)
-        image = self.console.draw_buffer()
-        image.save("default_font_output.png")
-        self.setLCD(ImageToLPBM(image))
-
-    def clear_status(self):
-        self.console.clear_status()
-        image = self.console.draw_buffer()
         image.save("default_font_output.png")
         self.setLCD(ImageToLPBM(image))
 
@@ -146,13 +136,13 @@ class G13Manager:
             if events:
 
                 for event in events:
-                    yield event
+                    blinker.signal("g13_key").send(event)
 
             joy_events = list(self.joystick_position(read_result))
             if joy_events:
 
                 for event in joy_events:
-                    yield event
+                    blinker.signal("g13_joy").send(event)
 
     def read_data(self) -> list[int]:
         """Read 8 bytes from the USB device."""

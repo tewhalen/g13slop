@@ -1,5 +1,6 @@
 import itertools
 
+import blinker
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 spleen_font = ImageFont.load("font/spleen-5x8.pil")
@@ -15,6 +16,9 @@ class LogEmulator:
     def __init__(self):
         self.buffer = [" " * self.width for _ in range(self.height)]
         self.status = ""
+        blinker.signal("g13_print").connect(self.output)
+        blinker.signal("g13_status").connect(self.set_status)
+        blinker.signal("g13_clear_status").connect(self.clear_status)
 
     def split_input(self, raw_line: str):
         lines = []
@@ -32,12 +36,15 @@ class LogEmulator:
         for line in self.split_input(raw_line):
             self.buffer.append(line)
         self.buffer = self.buffer[-self.height :]
+        blinker.signal("g13_framebuffer").send(self.draw_buffer())
 
     def set_status(self, status: str):
         self.status = status
+        blinker.signal("g13_framebuffer").send(self.draw_buffer())
 
-    def clear_status(self):
+    def clear_status(self, *msg):
         self.status = ""
+        blinker.signal("g13_framebuffer").send(self.draw_buffer())
 
     def content(self):
         return ["".join(row) for row in self.buffer]

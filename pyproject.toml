@@ -5,8 +5,10 @@ description = "Rudimentary control of a Logitech G13"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "blinker>=1.9.0",
     "loguru>=0.7.3",
     "pillow>=12.0.0",
+    "pillow-scripts>=5.0.0",
     "pynput>=1.8.1",
     "pyusb>=1.3.1",
 ]
