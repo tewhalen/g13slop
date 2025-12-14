@@ -1,3 +1,5 @@
+import typing
+
 import blinker
 import pynput
 from loguru import logger
@@ -16,7 +18,11 @@ class InputManager:
     """Receives codes from the device and outputs keyboard and mouse events."""
 
     direct_mapping: dict[
-        str, str | pynput.keyboard.Key | tuple[pynput.keyboard.Key | str, ...]
+        str,
+        str
+        | pynput.keyboard.Key
+        | tuple[pynput.keyboard.Key | str, ...]
+        | typing.Callable,
     ] = {
         "G1": (pynput.keyboard.Key.cmd, "z"),
         "G2": (pynput.keyboard.Key.shift, pynput.keyboard.Key.cmd, "z"),
@@ -74,6 +80,8 @@ class InputManager:
                     self.keyboard.press(key)
                 for key in reversed(output_key):
                     self.keyboard.release(key)
+        elif isinstance(output_key, typing.Callable):
+            output_key(self, action, key_code)
         elif output_key:
             if action == "PRESSED":
                 self.keyboard.press(output_key)
