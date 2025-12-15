@@ -120,7 +120,7 @@ class InputManager:
             raise EndProgram()
 
         elif key_code == "M1":
-            blinker.signal("g13_status").send("Well now")
+            blinker.signal("g13_set_status").send("Well now")
         elif key_code == "M2":
             blinker.signal("g13_clear_status").send()
         else:
