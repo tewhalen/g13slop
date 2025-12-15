@@ -36,9 +36,9 @@ class G13Manager:
         self.led_status = [0, 0, 0, 0]
         self._joystick_codes = set()
         blinker.signal("g13_framebuffer").connect(self.console_refresh)
-        blinker.signal("led_toggle").connect(self.toggle_led)
-        blinker.signal("led_on").connect(self.led_on)
-        blinker.signal("led_off").connect(self.led_off)
+        blinker.signal("g13_led_toggle").connect(self.toggle_led)
+        blinker.signal("g13_led_on").connect(self.led_on)
+        blinker.signal("g13_led_off").connect(self.led_off)
 
     def joystick_position(self, bytes: Sequence[int]):
         """If the joystick has moved significantly, yield corresponding codes."""

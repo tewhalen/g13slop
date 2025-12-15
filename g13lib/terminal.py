@@ -17,7 +17,7 @@ class LogEmulator:
         self.buffer = [" " * self.width for _ in range(self.height)]
         self.status = ""
         blinker.signal("g13_print").connect(self.output)
-        blinker.signal("g13_status").connect(self.set_status)
+        blinker.signal("g13_set_status").connect(self.set_status)
         blinker.signal("g13_clear_status").connect(self.clear_status)
 
     def split_input(self, raw_line: str):

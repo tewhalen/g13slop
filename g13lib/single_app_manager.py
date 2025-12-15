@@ -7,6 +7,11 @@ from g13lib.input_manager import InputManager
 
 
 class SingleAppManager(InputManager):
+    """An InputManager for a single application.
+
+    Listens for the active application and activates or deactivates itself accordingly.
+    """
+
     active = False
     app_name: str
 
@@ -18,14 +23,14 @@ class SingleAppManager(InputManager):
     def activate(self):
         self.active = True
         blinker.signal("single_focus").send(self.app_name)
-        blinker.signal("g13_status").send(f"{self.app_name}")
-        blinker.signal("led_on").send(0)
+        blinker.signal("g13_set_status").send(f"{self.app_name}")
+        blinker.signal("g13_led_on").send(0)
 
     def deactivate(self):
         self.active = False
         blinker.signal("release_focus").send(self.app_name)
         blinker.signal("g13_clear_status").send()
-        blinker.signal("led_off").send(0)
+        blinker.signal("g13_led_off").send(0)
 
     def app_changed(self, app_name: str):
         logger.info("Switching to app: {}", app_name)
