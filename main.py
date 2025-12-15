@@ -1,39 +1,12 @@
 import time
 
 import blinker
-from AppKit import NSWorkspace
 from loguru import logger
 
 from g13lib.apps.davinci_resolve import DavinciInputManager
 from g13lib.device_manager import G13Manager, G13USBError
 from g13lib.input_manager import EndProgram, GeneralManager
-
-
-class AppMonitor:
-    current_app: str | None
-    last_poll: float
-
-    def __init__(self):
-        self.current_app = self.detect_current_application()
-
-    def detect_current_application(self) -> str:
-        active_app = NSWorkspace.sharedWorkspace().activeApplication()
-
-        self.last_poll = time.time()
-        return active_app["NSApplicationName"]
-
-    def notify(self) -> bool:
-        # if it's been at least a second
-        if time.time() - self.last_poll < 1:
-            return False
-        active_app = self.detect_current_application()
-
-        if active_app != self.current_app:
-            self.current_app = active_app
-            # Add your notification logic here
-            blinker.signal("app_changed").send(active_app)
-            return True
-        return False
+from g13lib.monitors.current_app import AppMonitor
 
 
 def read_data_loop(device_manager: G13Manager, app_monitor: AppMonitor):
@@ -45,7 +18,7 @@ def read_data_loop(device_manager: G13Manager, app_monitor: AppMonitor):
             # give up
             break
         time.sleep(0.001)
-        app_monitor.notify()
+
         blinker.signal("tick").send()
         for result in device_manager.get_codes():
             if isinstance(result, G13USBError):
