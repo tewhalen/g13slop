@@ -46,7 +46,7 @@ def read_data_loop(device_manager: G13Manager, app_monitor: AppMonitor):
             break
         time.sleep(0.001)
         app_monitor.notify()
-
+        blinker.signal("tick").send()
         for result in device_manager.get_codes():
             if isinstance(result, G13USBError):
                 error_count += 1

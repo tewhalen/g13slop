@@ -37,25 +37,53 @@ class InputManager:
     }
     keyboard: pynput.keyboard.Controller
     mouse: pynput.mouse.Controller
-    previous_joystick_positions: tuple[str | None, str | None] = (
-        "JOY_X_ZERO_0",
-        "JOY_Y_ZERO_0",
-    )
+    _previous_joystick_positions: list[str, str]
     active: bool = True
+
+    # Joystick repeat tracking
+    REPEAT_START_TICKS = 10  # ~500ms at 50ms/tick
+    REPEAT_INTERVAL_TICKS = 2  # Repeat every ~100ms
+
+    joystick_repeat_ticks: int = 0
 
     def __init__(self):
         self.keyboard = pynput.keyboard.Controller()
         self.mouse = pynput.mouse.Controller()
+        self._previous_joystick_positions = ["JOY_X_ZERO_0", "JOY_Y_ZERO_0"]
 
         blinker.signal("app_changed").connect(self.app_changed)
         blinker.signal("g13_key").connect(self.handle_keystroke)
         blinker.signal("g13_joy").connect(self.handle_joystick)
+        blinker.signal("tick").connect(self.on_tick)
 
     def activate(self, msg):
         self.active = True
 
     def deactivate(self, msg):
         self.active = False
+
+    def joystick_held(self):
+        """returns true when the joystick is outside of the center position."""
+        return any(x[-1] != "0" for x in self._previous_joystick_positions)
+
+    def on_tick(self, msg):
+        """Called on each main loop tick to handle joystick repeat events."""
+        if not self.active:
+            return
+
+        if self.joystick_held():
+            self.joystick_repeat_ticks += 1
+            if self.joystick_repeat_ticks == self.REPEAT_START_TICKS:
+                # Start repeating after initial delay
+                self.emit_repeat_scroll()
+            elif self.joystick_repeat_ticks > self.REPEAT_START_TICKS:
+                # Continue repeating at interval
+                if (
+                    self.joystick_repeat_ticks - self.REPEAT_START_TICKS
+                ) % self.REPEAT_INTERVAL_TICKS == 0:
+                    self.emit_repeat_scroll()
+        else:
+            self.joystick_repeat_ticks = 0
 
     def handle_input(self, code: str):
 
@@ -98,48 +126,76 @@ class InputManager:
         else:
             blinker.signal("g13_print").send(code)
 
+    def previous_joystick_position(self, j_axis: str) -> tuple[str, str]:
+        """Returns direction, value of previous position for relevant axis."""
+        if j_axis == "X":
+            p_code = self._previous_joystick_positions[0]
+        else:
+            p_code = self._previous_joystick_positions[1]
+        _, p_direction, p_value = split_joystick_code(p_code)
+
+        return p_direction, p_value
+
+    def joystick_scroll_triggered(
+        self, j_axis: str, j_direction: str, j_value: str
+    ) -> bool:
+        """Returns true if the joystick has moved a lower to a higher value."""
+        if j_value == "0":
+            # moved to center
+            return False
+        p_direction, p_value = self.previous_joystick_position(j_axis)
+        if int(j_value) > int(p_value) or p_direction != j_direction:
+
+            logger.info("Scrolling...")
+            # moved from center-ish to 2 (or somehow swapped direction!)
+            return True
+
+        return False
+
     def handle_joystick(self, code: str):
-        """Take in a joystick code and handle it accordingly."""
+        """Take in a joystick code and handle it accordingly.
+
+        Joystick codes are of the form JOY_X_{direction}_{value} where direction is
+        'NEG' or 'POS' or 'ZERO' and value is a number.
+        """
+
         if not self.active:
             return
-        # let's start simple.... generate a mouse scroll event
-        # if the JOY code moves from 0 or 1 to 2
-        j_axis, j_direction, j_value = split_joystick_code(code)
-        if j_axis == "X":
-            p_code = self.previous_joystick_positions[0]
-        else:
-            p_code = self.previous_joystick_positions[1]
-        if p_code:
-            _, p_direction, p_value = split_joystick_code(p_code)
-        else:
-            p_direction, p_value = "ZERO", "0"
 
-        if j_value == "2":
-            if p_value in ("0", "1") or p_direction != j_direction:
-                logger.info("Scrolling...")
-                # moved from center-ish to 2 (or somehow swapped direction!)
-                if j_axis == "X":
-                    # generate horizontal scroll
-                    if j_direction == "NEG":
-                        self.mouse.scroll(-12, 0)
-                    elif j_direction == "POS":
-                        self.mouse.scroll(12, 0)
-                elif j_axis == "Y":
-                    # generate vertical scroll
-                    if j_direction == "NEG":
-                        self.mouse.scroll(0, -12)
-                    elif j_direction == "POS":
-                        self.mouse.scroll(0, 12)
+        j_axis, j_direction, j_value = split_joystick_code(code)
+
+        if self.joystick_scroll_triggered(j_axis, j_direction, j_value):
+            self.emit_scroll(j_axis, j_direction)
+
         if j_axis == "X":
-            self.previous_joystick_positions = (
-                code,
-                self.previous_joystick_positions[1],
-            )
+            self._previous_joystick_positions[0] = code
         else:
-            self.previous_joystick_positions = (
-                self.previous_joystick_positions[0],
-                code,
-            )
+            self._previous_joystick_positions[1] = code
+
+    def emit_scroll(self, j_axis: str, j_direction: str):
+        """Emit a scroll event for the given axis and direction."""
+        if j_axis == "X":
+            # generate horizontal scroll
+            if j_direction == "NEG":
+                self.mouse.scroll(-12, 0)
+            elif j_direction == "POS":
+                self.mouse.scroll(12, 0)
+        elif j_axis == "Y":
+            # generate vertical scroll
+            if j_direction == "NEG":
+                self.mouse.scroll(0, -12)
+            elif j_direction == "POS":
+                self.mouse.scroll(0, 12)
+
+    def emit_repeat_scroll(self):
+        """Emit a repeat scroll based on the currently held joystick position."""
+        for code in self._previous_joystick_positions:
+
+            j_axis, j_direction, j_value = split_joystick_code(code)
+
+            if j_value != "0":
+                logger.info(f"Repeating scroll {code}")
+                self.emit_scroll(j_axis, j_direction)
 
     def app_changed(self, app_name: str):
         # in the future this will change profiles
