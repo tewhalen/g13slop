@@ -37,13 +37,14 @@ class InputManager:
     }
     keyboard: pynput.keyboard.Controller
     mouse: pynput.mouse.Controller
-    _previous_joystick_positions: list[str, str]
+
     active: bool = True
 
     # Joystick repeat tracking
+    _previous_joystick_positions: list[str, str]
+
     REPEAT_START_TICKS = 10  # ~500ms at 50ms/tick
     REPEAT_INTERVAL_TICKS = 2  # Repeat every ~100ms
-
     joystick_repeat_ticks: int = 0
 
     def __init__(self):
@@ -78,10 +79,8 @@ class InputManager:
                 self.emit_repeat_scroll()
             elif self.joystick_repeat_ticks > self.REPEAT_START_TICKS:
                 # Continue repeating at interval
-                if (
-                    self.joystick_repeat_ticks - self.REPEAT_START_TICKS
-                ) % self.REPEAT_INTERVAL_TICKS == 0:
-                    self.emit_repeat_scroll()
+
+                self.emit_repeat_scroll()
         else:
             self.joystick_repeat_ticks = 0
 
@@ -193,15 +192,26 @@ class InputManager:
             elif j_direction == "POS":
                 self.mouse.scroll(0, 12)
 
+    def is_scroll_tick(self, j_value: str) -> bool:
+        """Return true if the current tick count is right for the given joystick position."""
+        tick_mod = [None, 4, 2, 1][int(j_value)]
+
+        if tick_mod and self.joystick_repeat_ticks % tick_mod == 0:
+
+            return True
+
+        return False
+
     def emit_repeat_scroll(self):
         """Emit a repeat scroll based on the currently held joystick position."""
         for code in self._previous_joystick_positions:
 
             j_axis, j_direction, j_value = split_joystick_code(code)
-
-            if j_value != "0":
-                logger.info(f"Repeating scroll {code}")
-                self.emit_scroll(j_axis, j_direction)
+            if self.is_scroll_tick(j_value):
+                if j_value != "0":
+                    logger.info(f"Repeating scroll {code}")
+                    self.emit_scroll(j_axis, j_direction)
+        return
 
     def app_changed(self, app_name: str):
         # in the future this will change profiles
