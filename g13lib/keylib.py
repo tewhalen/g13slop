@@ -8,3 +8,8 @@ cut = (pynput.keyboard.Key.cmd, "x")
 
 zoom_in = (pynput.keyboard.Key.cmd, "=")
 zoom_out = (pynput.keyboard.Key.cmd, "-")
+
+shift = pynput.keyboard.Key.shift
+cmd = pynput.keyboard.Key.cmd
+alt = pynput.keyboard.Key.alt
+space = pynput.keyboard.Key.space

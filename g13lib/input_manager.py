@@ -100,21 +100,11 @@ class InputManager:
         action = code.split("_")[-1]
         key_code = "_".join(code.split("_")[:-1])
         output_key = self.direct_mapping.get(key_code)
-        if type(output_key) is tuple:
-            if action == "PRESSED":
-                # multi-code events are only executed on press
-                # hold each in turn
-                for key in output_key:
-                    self.keyboard.press(key)
-                for key in reversed(output_key):
-                    self.keyboard.release(key)
-        elif isinstance(output_key, typing.Callable):
+        if isinstance(output_key, typing.Callable):
             output_key(self, action, key_code)
+
         elif output_key:
-            if action == "PRESSED":
-                self.keyboard.press(output_key)
-            elif action == "RELEASED":
-                self.keyboard.release(output_key)
+            self.send_output(output_key, action)
         elif key_code == "BD":
 
             raise EndProgram()
@@ -125,6 +115,22 @@ class InputManager:
             blinker.signal("g13_clear_status").send()
         else:
             blinker.signal("g13_print").send(code)
+
+    def send_output(self, output_key: tuple | str | pynput.keyboard.Key, action: str):
+        """Send output to the keyboard based on the action and key code."""
+        if type(output_key) is tuple:
+            if action == "PRESSED":
+                # multi-code events are only executed on press
+                # hold each in turn
+                for key in output_key:
+                    self.keyboard.press(key)
+                for key in reversed(output_key):
+                    self.keyboard.release(key)
+        else:
+            if action == "PRESSED":
+                self.keyboard.press(output_key)
+            elif action == "RELEASED":
+                self.keyboard.release(output_key)
 
     def previous_joystick_position(self, j_axis: str) -> tuple[str, str]:
         """Returns direction, value of previous position for relevant axis."""

@@ -23,14 +23,10 @@ class SingleAppManager(InputManager):
     def activate(self):
         self.active = True
         blinker.signal("single_focus").send(self.app_name)
-        blinker.signal("g13_set_status").send(f"{self.app_name}")
-        blinker.signal("g13_led_on").send(0)
 
     def deactivate(self):
         self.active = False
         blinker.signal("release_focus").send(self.app_name)
-        blinker.signal("g13_clear_status").send()
-        blinker.signal("g13_led_off").send(0)
 
     def app_changed(self, app_name: str):
         logger.info("Switching to app: {}", app_name)
