@@ -133,6 +133,10 @@ class G13Manager:
                 self.usb_device.reset()
                 yield G13USBError(str(e))
                 return
+            # re-raise the unhandled exception...
+            # maybe handle them in the future?
+            logger.error("Unhandled USB Error: {} ({})", e, e.errno)
+            raise
         if read_result:
 
             events = list(self.key_events(read_result))
