@@ -2,6 +2,7 @@ import time
 
 import blinker
 from AppKit import NSWorkspace
+from loguru import logger
 
 
 class AppMonitor:
@@ -23,7 +24,11 @@ class AppMonitor:
         # if it's been at least a 1/10th second
         if time.time() - self.last_poll < 0.1:
             return False
-        active_app = self.detect_current_application()
+        try:
+            active_app = self.detect_current_application()
+        except Exception as e:
+            logger.error("Error detecting current application: {}", e)
+            return False
         if active_app != self.current_app:
             self.current_app = active_app
             # Add your notification logic here
