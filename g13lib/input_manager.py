@@ -52,15 +52,18 @@ class InputManager:
         self.mouse = pynput.mouse.Controller()
         self._previous_joystick_positions = ["JOY_X_ZERO_0", "JOY_Y_ZERO_0"]
 
+        # Connect signals
         blinker.signal("app_changed").connect(self.app_changed)
         blinker.signal("g13_key").connect(self.handle_keystroke)
         blinker.signal("g13_joy").connect(self.handle_joystick)
         blinker.signal("tick").connect(self.on_tick)
 
     def activate(self, msg):
+        """Make this manager active and responsive to events and input."""
         self.active = True
 
     def deactivate(self, msg):
+        """Make this manager inactive and unresponsive to events and input."""
         self.active = False
 
     def joystick_held(self):
@@ -84,16 +87,9 @@ class InputManager:
         else:
             self.joystick_repeat_ticks = 0
 
-    def handle_input(self, code: str):
-
-        if code.startswith("JOY"):
-            self.handle_joystick(code)
-        else:
-            self.handle_keystroke(code)
-
     def handle_keystroke(self, code: str):
-        # code will end in either '_PRESSED' or '_RELEASED'
-        # split and handle accordingly
+        """Take in a keystroke code and handle it accordingly."""
+
         if not self.active:
             return
         action = code.split("_")[-1]
@@ -113,6 +109,7 @@ class InputManager:
         elif key_code == "M2":
             blinker.signal("g13_clear_status").send()
         else:
+            # as a debugging aid for now, show unhandled codes on the g13 console
             blinker.signal("g13_print").send(code)
 
     def send_output(self, output_key: tuple | str | pynput.keyboard.Key, action: str):
@@ -123,6 +120,7 @@ class InputManager:
                 # hold each in turn
                 for key in output_key:
                     self.keyboard.press(key)
+                # release each in reverse order
                 for key in reversed(output_key):
                     self.keyboard.release(key)
         else:
@@ -160,7 +158,7 @@ class InputManager:
         """Take in a joystick code and handle it accordingly.
 
         Joystick codes are of the form JOY_X_{direction}_{value} where direction is
-        'NEG' or 'POS' or 'ZERO' and value is a number.
+        'NEG' or 'POS' or 'ZERO' and value is an integer.
         """
 
         if not self.active:
