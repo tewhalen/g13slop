@@ -151,7 +151,6 @@ class InputManager:
         p_direction, p_value = self.previous_joystick_position(j_axis)
         if int(j_value) > int(p_value) or p_direction != j_direction:
 
-            logger.info("Scrolling...")
             # moved from center-ish to 2 (or somehow swapped direction!)
             return True
 
@@ -182,15 +181,15 @@ class InputManager:
         if j_axis == "X":
             # generate horizontal scroll
             if j_direction == "NEG":
-                self.mouse.scroll(-12, 0)
+                self.mouse.scroll(-6, 0)
             elif j_direction == "POS":
-                self.mouse.scroll(12, 0)
+                self.mouse.scroll(6, 0)
         elif j_axis == "Y":
             # generate vertical scroll
             if j_direction == "NEG":
-                self.mouse.scroll(0, -12)
+                self.mouse.scroll(0, -6)
             elif j_direction == "POS":
-                self.mouse.scroll(0, 12)
+                self.mouse.scroll(0, 6)
 
     def is_scroll_tick(self, j_value: str) -> bool:
         """Return true if the current tick count is right for the given joystick position."""
@@ -208,9 +207,7 @@ class InputManager:
 
             j_axis, j_direction, j_value = split_joystick_code(code)
             if self.is_scroll_tick(j_value):
-                if j_value != "0":
-                    logger.info(f"Repeating scroll {code}")
-                    self.emit_scroll(j_axis, j_direction)
+                self.emit_scroll(j_axis, j_direction)
         return
 
     def app_changed(self, app_name: str):
