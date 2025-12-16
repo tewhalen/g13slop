@@ -1,6 +1,5 @@
 import bisect
 import errno
-import time
 from typing import Sequence
 
 import blinker
@@ -80,7 +79,8 @@ class G13Manager:
                     self._joy_y_zero = False
                     yield f"JOY_Y_{code}"
 
-    def determine_keycodes(self, bytes: Sequence[int]):
+    def determine_held_keycodes(self, bytes: Sequence[int]):
+        """Given a bitmask of held keys, yield the corresponding keycodes."""
         # for each keycode in the keycodes dict
         for key, (byte, bit_position) in g13lib.data.keycodes.items():
             # if the bits set in the keycode are present in bytes
@@ -90,19 +90,21 @@ class G13Manager:
                 yield key
 
     def key_events(self, bytes: Sequence[int]):
+        """Given a bitmask of held keys, yield the corresponding pressed and released events."""
         seen_keys = set()
-        for key in self.determine_keycodes(bytes):
+        for key in self.determine_held_keycodes(bytes):
             seen_keys.add(key)
+
         # release held but now unseen keys
         for released_key in self.held_keys.difference(seen_keys):
             yield f"{released_key}_RELEASED"
-
+        # press unheld but now seen keys
         for key in seen_keys.difference(self.held_keys):
             yield f"{key}_PRESSED"
         self.held_keys = seen_keys
 
     def console_refresh(self, image: PIL.Image.Image):
-
+        """Refresh the LCD with the given image."""
         # image.save("default_font_output.png")
         self.setLCD(ImageToLPBM(image))
 
@@ -119,12 +121,21 @@ class G13Manager:
             raise ValueError("Invalid USB device")
         # okay, great
         self.usb_device = usb_device
+
+        # this is the statement that requires root privs
+        # most likely because the kernel auto-attaches
+        # to HID devices and we need to detach the kernel driver
+        # in order to frob the LEDs and LCD.
         if self.usb_device.is_kernel_driver_active(0):
             self.usb_device.detach_kernel_driver(0)
+
+        # honestly not sure what this does or whether it's necessary
+        # but it seems to be a good practice
         cfg = usb.util.find_descriptor(self.usb_device)
         self.usb_device.set_configuration(cfg)
 
     def get_codes(self):
+        """Poll the USB device for key events and joystick positions."""
         try:
             read_result = self.read_data()
         except usb.core.USBError as e:
@@ -138,18 +149,13 @@ class G13Manager:
             logger.error("Unhandled USB Error: {} ({})", e, e.errno)
             raise
         if read_result:
-
             events = list(self.key_events(read_result))
-            if events:
-
-                for event in events:
-                    blinker.signal("g13_key").send(event)
+            for event in events:
+                blinker.signal("g13_key").send(event)
 
             joy_events = list(self.joystick_position(read_result))
-            if joy_events:
-
-                for event in joy_events:
-                    blinker.signal("g13_joy").send(event)
+            for event in joy_events:
+                blinker.signal("g13_joy").send(event)
 
     def read_data(self) -> list[int]:
         """Read 8 bytes from the USB device."""

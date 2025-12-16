@@ -1,8 +1,6 @@
 import blinker
-import pynput
 from loguru import logger
 
-import g13lib.keylib as keylib
 from g13lib.input_manager import InputManager
 
 

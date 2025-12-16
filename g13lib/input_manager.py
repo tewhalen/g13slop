@@ -2,7 +2,6 @@ import typing
 
 import blinker
 import pynput
-from loguru import logger
 
 
 def split_joystick_code(code: str) -> tuple[str, str, str]:
@@ -41,7 +40,7 @@ class InputManager:
     active: bool = True
 
     # Joystick repeat tracking
-    _previous_joystick_positions: list[str, str]
+    _previous_joystick_positions: list[str]
 
     REPEAT_START_TICKS = 10  # ~500ms at 50ms/tick
     REPEAT_INTERVAL_TICKS = 2  # Repeat every ~100ms

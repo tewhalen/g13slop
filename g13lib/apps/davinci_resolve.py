@@ -10,7 +10,7 @@ class DavinciInputManager(SingleAppManager):
 
     playhead_action: str = "normal"
 
-    workspace_page: str = "edit"
+    workspace_page: str = "edit"  # "edit", "fusion", "color"
 
     def activate(self):
         blinker.signal("g13_set_status").send("edit   fusion  color")
