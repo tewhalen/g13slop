@@ -10,6 +10,7 @@ from loguru import logger
 
 import g13lib.data
 from g13lib.render_fb import ImageToLPBM
+from g13lib.security import drop_root_privs
 from g13lib.terminal import LogEmulator
 
 product_id = "0xc21c"
@@ -30,10 +31,15 @@ class G13Manager:
     _joy_y_zero: bool = True
 
     def __init__(self):
+
+        # initialize the USB device and drop root privs
+        self.start_usb_device()
+
         self.console = LogEmulator()
         self.held_keys = set()
         self.led_status = [0, 0, 0, 0]
         self._joystick_codes = set()
+
         blinker.signal("g13_framebuffer").connect(self.console_refresh)
         blinker.signal("g13_led_toggle").connect(self.toggle_led)
         blinker.signal("g13_led_on").connect(self.led_on)
@@ -108,10 +114,6 @@ class G13Manager:
         # image.save("default_font_output.png")
         self.setLCD(ImageToLPBM(image))
 
-    def start(self):
-
-        self.start_usb_device()
-
     def start_usb_device(self):
         # USB device for control transfers (LCD, LEDs, backlight)
         usb_device = usb.core.find(idVendor=0x046D, idProduct=0xC21C)
@@ -122,12 +124,12 @@ class G13Manager:
         # okay, great
         self.usb_device = usb_device
 
-        # this is the statement that requires root privs
-        # most likely because the kernel auto-attaches
-        # to HID devices and we need to detach the kernel driver
-        # in order to frob the LEDs and LCD.
         if self.usb_device.is_kernel_driver_active(0):
             self.usb_device.detach_kernel_driver(0)
+
+        # at this point, we're initialized to the point
+        # where we can drop root privileges
+        drop_root_privs()
 
         # honestly not sure what this does or whether it's necessary
         # but it seems to be a good practice
