@@ -34,7 +34,12 @@ class LogEmulator:
 
     row_height: int = 9  # pixels per text row
 
-    buffer: list
+    # NOTE: 8 pixel font + 1 pixel spacing
+    # total rows = 48 / 9 = 5.33, so we can fit 5 full rows
+    # we're wasting 3 rows of pixels?
+    # or maybe the display is not exactly 48 pixels high?
+
+    buffer: list[str]
     autowrap: bool = True
     status: str = ""
 
