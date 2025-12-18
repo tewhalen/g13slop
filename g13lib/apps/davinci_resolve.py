@@ -3,9 +3,10 @@ import pynput
 from PIL import Image
 
 import g13lib.keylib as keylib
-from g13lib.render_fb import DecayingImage, LCDCompositor
+from g13lib.lcd.images import DecayingImage
+from g13lib.lcd.terminal import LogEmulator
+from g13lib.render_fb import LCDCompositor
 from g13lib.single_app_manager import SingleAppManager
-from g13lib.terminal import LogEmulator
 
 
 class DavinciInputManager(SingleAppManager):

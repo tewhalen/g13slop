@@ -12,7 +12,6 @@ from loguru import logger
 import g13lib.data
 from g13lib.render_fb import ImageToLPBM, LCDCompositor
 from g13lib.security import drop_root_privs
-from g13lib.terminal import LogEmulator
 
 product_id = "0xc21c"
 vendor_id = "0x046d"

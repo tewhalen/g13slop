@@ -1,8 +1,8 @@
 import blinker
 
 from g13lib.input_manager import InputManager
+from g13lib.lcd.terminal import LogEmulator
 from g13lib.render_fb import LCDCompositor
-from g13lib.terminal import LogEmulator
 
 
 class GeneralManager(InputManager):
