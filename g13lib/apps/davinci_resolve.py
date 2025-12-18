@@ -1,8 +1,11 @@
 import blinker
 import pynput
+from PIL import Image
 
 import g13lib.keylib as keylib
+from g13lib.render_fb import DecayingImage, LCDCompositor
 from g13lib.single_app_manager import SingleAppManager
+from g13lib.terminal import LogEmulator
 
 
 class DavinciInputManager(SingleAppManager):
@@ -12,7 +15,23 @@ class DavinciInputManager(SingleAppManager):
 
     workspace_page: str = "edit"  # "edit", "fusion", "color"
 
+    # 32x32 icon for DaVinci Resolve
+    icon = Image.open("icons/davinci_resolve_icon.png")
+
+    def __init__(self):
+
+        super().__init__()
+
+    def compositor(self):
+        return LCDCompositor(
+            LogEmulator(),
+            DecayingImage(self.icon, (64, 0)),
+        )
+
     def activate(self):
+        # activate the compositor first
+        blinker.signal("set_compositor").send(self.compositor())
+
         blinker.signal("g13_set_status").send("edit   fusion  color")
         return super().activate()
 
@@ -21,6 +40,7 @@ class DavinciInputManager(SingleAppManager):
         return super().deactivate()
 
     def toggle_blade(self, action, key_code):
+        """Cycle through playhead actions: normal -> blade -> trim -> normal"""
         key_mapping = {"normal": "a", "blade": "b", "trim": "t"}
         if action == "RELEASED":
             # lookup current status in key_mapping and release that key
@@ -72,3 +92,13 @@ class DavinciInputManager(SingleAppManager):
         "L2": switch_to_fusion,
         "L3": switch_to_color,
     }
+
+
+if __name__ == "__main__":
+    m = DavinciInputManager()
+
+    c = m.compositor()
+    m.activate()
+    blinker.signal("g13_print").send("HELLOW DAVINCI\n")
+    fb = c.render()
+    fb.save("davinci_test.png")

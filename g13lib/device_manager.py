@@ -1,5 +1,6 @@
 import bisect
 import errno
+import time
 from typing import Sequence
 
 import blinker
@@ -9,7 +10,7 @@ import usb.util
 from loguru import logger
 
 import g13lib.data
-from g13lib.render_fb import ImageToLPBM
+from g13lib.render_fb import ImageToLPBM, LCDCompositor
 from g13lib.security import drop_root_privs
 from g13lib.terminal import LogEmulator
 
@@ -25,7 +26,11 @@ class G13Manager:
 
     held_keys: set[str]
     led_status: list[int]
-    console: LogEmulator
+
+    compositor: LCDCompositor
+    _lcd_tick_timer: float = 0.0
+    _lcd_framebuffer: PIL.Image.Image
+
     usb_device: usb.core.Device
     _joy_x_zero: bool = True
     _joy_y_zero: bool = True
@@ -35,12 +40,17 @@ class G13Manager:
         # initialize the USB device and drop root privs
         self.start_usb_device()
 
-        self.console = LogEmulator()
         self.held_keys = set()
         self.led_status = [0, 0, 0, 0]
         self._joystick_codes = set()
 
-        blinker.signal("g13_framebuffer").connect(self.console_refresh)
+        self.compositor = LCDCompositor()
+        self._lcd_framebuffer = PIL.Image.new("RGB", (160, 43))
+
+        blinker.signal("tick").connect(self.get_codes)
+        blinker.signal("tick").connect(self.lcd_tick)
+
+        blinker.signal("set_compositor").connect(self.set_compositor)
         blinker.signal("g13_led_toggle").connect(self.toggle_led)
         blinker.signal("g13_led_on").connect(self.led_on)
         blinker.signal("g13_led_off").connect(self.led_off)
@@ -109,10 +119,22 @@ class G13Manager:
             yield f"{key}_PRESSED"
         self.held_keys = seen_keys
 
-    def console_refresh(self, image: PIL.Image.Image):
-        """Refresh the LCD with the given image."""
-        # image.save("default_font_output.png")
-        self.setLCD(ImageToLPBM(image))
+    def set_compositor(self, compositor: LCDCompositor):
+        logger.debug("Setting new compositor: {}", compositor)
+        self.compositor = compositor
+
+    def lcd_tick(self, *msg):
+        """Refresh the LCD with the current console framebuffer if it's changed."""
+        # refresh at 30 Hz max
+        current_time = time.time()
+        if current_time - self._lcd_tick_timer < 0.033:
+            return
+        self._lcd_tick_timer = current_time
+        fb_image = self.compositor.render()
+        if fb_image != self._lcd_framebuffer:
+
+            self._lcd_framebuffer = fb_image
+            self.setLCD(ImageToLPBM(fb_image))
 
     def start_usb_device(self):
         # USB device for control transfers (LCD, LEDs, backlight)
@@ -136,7 +158,7 @@ class G13Manager:
         cfg = usb.util.find_descriptor(self.usb_device)
         self.usb_device.set_configuration(cfg)
 
-    def get_codes(self):
+    def get_codes(self, msg=None):
         """Poll the USB device for key events and joystick positions."""
         try:
             read_result = self.read_data()
@@ -144,8 +166,8 @@ class G13Manager:
             if e.errno in (errno.EPIPE, errno.EIO):  # pipe error?
                 logger.error("USB Error: {}, resetting", e)
                 self.usb_device.reset()
-                yield G13USBError(str(e))
-                return
+                return G13USBError(str(e))
+
             # re-raise the unhandled exception...
             # maybe handle them in the future?
             logger.error("Unhandled USB Error: {} ({})", e, e.errno)

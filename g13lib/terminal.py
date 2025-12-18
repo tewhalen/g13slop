@@ -43,7 +43,7 @@ class LogEmulator:
     autowrap: bool = True
     status: str = ""
 
-    dirty: bool = False
+    dirty: bool = True
     _image_cache: Image.Image | None = None
 
     def __init__(self):
@@ -145,6 +145,10 @@ class LogEmulator:
         image = image.convert("L")
         final = ImageChops.invert(image).convert("1")  # white on black
         return final
+
+    def render(self) -> tuple[Image.Image, tuple[int, int]]:
+        """Returns the current buffer image and its position."""
+        return self.framebuffer(), (0, 0)
 
 
 if __name__ == "__main__":
