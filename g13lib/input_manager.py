@@ -211,10 +211,3 @@ class InputManager:
         # in the future this will change profiles
         # for now just print the name of the app
         blinker.signal("g13_print").send(app_name)
-
-
-class GeneralManager(InputManager):
-    def __init__(self):
-        super().__init__()
-        blinker.signal("release_focus").connect(self.activate)
-        blinker.signal("single_focus").connect(self.deactivate)
