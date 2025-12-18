@@ -22,10 +22,12 @@ import itertools
 import blinker
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
+from g13lib.render_fb import Layer
+
 spleen_font = ImageFont.load("font/spleen-5x8.pil")
 
 
-class LogEmulator:
+class LogEmulator(Layer):
     # G13 LCD is 160x48 pixels
     lcd_dims = (160, 48)
     # G13 LCD dimensions in character cells using 5x8 font

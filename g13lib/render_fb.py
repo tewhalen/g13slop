@@ -30,6 +30,7 @@ class LCDCompositor:
             layer_image, position = layer.render()
             if layer_image:
                 # if there's an alpha channel, use it as a mask
+                # NOTE: does this work as expected with 1-bit images?
                 if layer_image.mode in ("RGBA", "LA") or (
                     layer_image.mode == "P" and "transparency" in layer_image.info
                 ):
