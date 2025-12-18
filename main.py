@@ -26,7 +26,7 @@ def main():
     ]
 
     try:
-
+        blinker.signal("release_focus").send()
         read_data_loop(m)
     except EndProgram:
         blinker.signal("g13_clear_status").send()

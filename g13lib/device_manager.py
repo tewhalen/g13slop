@@ -119,7 +119,7 @@ class G13Manager:
         self.held_keys = seen_keys
 
     def set_compositor(self, compositor: LCDCompositor):
-        logger.debug("Setting new compositor: {}", compositor)
+
         self.compositor = compositor
 
     def lcd_tick(self, *msg):

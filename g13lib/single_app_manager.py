@@ -27,7 +27,7 @@ class SingleAppManager(InputManager):
         blinker.signal("release_focus").send(self.app_name)
 
     def app_changed(self, app_name: str):
-        logger.info("Switching to app: {}", app_name)
+        logger.debug("Switching to app: {}", app_name)
         if app_name == self.app_name:
             self.activate()
         elif self.active:

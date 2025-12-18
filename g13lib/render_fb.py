@@ -27,6 +27,8 @@ class LCDCompositor:
         )  # start with white background
 
         for z, layer in enumerate(self.scene):
+            if not layer:
+                continue
             layer_image, position = layer.render()
             if layer_image:
                 # if there's an alpha channel, use it as a mask
@@ -37,7 +39,7 @@ class LCDCompositor:
                     framebuffer.paste(layer_image, position, layer_image)
                 else:
                     framebuffer.paste(layer_image, position)
-                layer_image.save(f"davinci_layer_{z}.png")
+                # layer_image.save(f"davinci_layer_{z}.png")
 
         return framebuffer
 
