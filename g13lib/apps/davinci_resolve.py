@@ -1,5 +1,4 @@
 import blinker
-import pynput
 from PIL import Image
 
 import g13lib.keylib as keylib
@@ -85,10 +84,10 @@ class DavinciInputManager(SingleAppManager):
         "G7": toggle_blade,
         "G8": keylib.copy,
         "G9": keylib.paste,
-        "G10": pynput.keyboard.Key.left,
-        "G11": pynput.keyboard.Key.space,
-        "G12": pynput.keyboard.Key.right,
-        "G15": pynput.keyboard.Key.shift,
+        "G10": keylib.left,
+        "G11": keylib.space,
+        "G12": keylib.right,
+        "G15": keylib.shift,
         "L1": switch_to_edit,
         "L2": switch_to_fusion,
         "L3": switch_to_color,
