@@ -11,20 +11,25 @@ class AppMonitor:
 
     def __init__(self):
         self.current_app = self.detect_current_application()
+        self.last_poll = time.time()
 
-        blinker.signal("tick").connect(self.notify)
+        blinker.signal("tick").connect(self.handle_tick)
 
     def detect_current_application(self) -> str:
         active_app = NSWorkspace.sharedWorkspace().activeApplication()
 
-        self.last_poll = time.time()
         return active_app["NSApplicationName"]
 
-    def notify(self, msg) -> bool:
+    def handle_tick(self, msg) -> bool:
         # if it's been at least a 1/10th second
         if time.time() - self.last_poll < 0.1:
             return False
+        return self.notify()
+
+    def notify(self) -> bool:
+
         try:
+            self.last_poll = time.time()
             active_app = self.detect_current_application()
         except Exception as e:
             logger.error("Error detecting current application: {}", e)
