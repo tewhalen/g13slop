@@ -4,16 +4,15 @@ A 'terminal emulator' for the G13's LCD screen.
 Maintains a buffer of text lines, and renders them to a full-screen image that can be
 sent to the G13.
 
-Monitors a signal for new text to print, and updates the image accordingly.
+To use this terminal emulator, create an instance of it and set it as a layer in a LCDCompositor, and
+then set that compositor as the active compositor in the Device Manager, using the `set_compositor` signal.
+
+Monitors a signal for new text to print, and updates the image accordingly. In theory, sending
+text using the `g13_print` signal will print to all active instances of this class, and the LCD screen
+will be updated if the active compisitor includes this layer.
+
 Also supports a bottom status line that can appear at the bottom of the screen. (Ideal for labeling
-the L1-L4 keys, for example.)
-
-Currently this sends out the framebuffer Image when updated,
-but also listens for a signal and returns the image when requested.
-
-This might alllow better control over what's drawn when. (E.g. we could swap from
-an image to the terminal view on demand, or composite multiple images together,
-animate transitions, etc.)
+the L1-L4 keys, for example.) (Set and cleared using the `g13_set_status` and `g13_clear_status` signals.)
 
 """
 
@@ -52,13 +51,12 @@ class LogEmulator(Layer):
         # initialize the buffer with empty lines
         self.buffer = [" " * self.row_chars for _ in range(self.term_rows)]
         self.status = ""
+
+        # connect the signals
+
         blinker.signal("g13_print").connect(self.output)
         blinker.signal("g13_set_status").connect(self.set_status)
         blinker.signal("g13_clear_status").connect(self.clear_status)
-        blinker.signal("term_framebuffer_request").connect(self.framebuffer)
-        blinker.signal("term_updated_framebuffer_request").connect(
-            self.updated_framebuffer
-        )
 
     def _invalidate(self, msg=None):
         self.dirty = True
@@ -97,6 +95,10 @@ class LogEmulator(Layer):
         return ["".join(row) for row in self.buffer]
 
     def framebuffer(self, msg=None) -> Image.Image:
+        """Returns the current framebuffer image.
+
+        Although this image is very small, we cache it to avoid re-rendering on every request.
+        """
         if not self.dirty and self._image_cache:
             return self._image_cache
 
@@ -104,15 +106,9 @@ class LogEmulator(Layer):
         self.dirty = False
         return self._image_cache
 
-    def updated_framebuffer(self, msg=None) -> Image.Image | None:
-        """Returns the framebuffer image, only if dirty."""
-        if self.dirty or not self._image_cache:
-            return self.framebuffer()
-        else:
-            # not updated
-            return None
-
     def _render_buffer_to_image(self):
+        """The actual rendering logic. Converts the text buffer to a 1-bit PIL Image."""
+        # FIXME: this is white-on-black; black-on-white could/should be an option too?
         image = Image.new(
             "1", self.lcd_dims, 1
         )  # Mode "1" for 1-bit pixels, white background
@@ -149,7 +145,7 @@ class LogEmulator(Layer):
         return final
 
     def render(self) -> tuple[Image.Image, tuple[int, int]]:
-        """Returns the current buffer image and its position."""
+        """As a compositor layer, return the current buffer image and its position."""
         return self.framebuffer(), (0, 0)
 
 
