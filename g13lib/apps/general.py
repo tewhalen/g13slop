@@ -6,6 +6,13 @@ from g13lib.render_fb import LCDCompositor
 
 
 class GeneralManager(InputManager):
+    """
+    The is the default InputManager that provides a general-purpose terminal emulator on the LCD.
+
+    Currently it just logs keypresses to the LCD and sends joystick events as mouse scrolls.
+
+    """
+
     _compositor: LCDCompositor
 
     def __init__(self):

@@ -6,6 +6,12 @@ from loguru import logger
 
 
 class AppMonitor:
+    """Sits around and listens for ticks, every 0.1 seconds it checks and
+    notifies when the current application changes.
+
+    The `app_changed` signal is essential for SingleAppManager to work.
+    """
+
     current_app: str | None
     last_poll: float
 
