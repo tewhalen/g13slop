@@ -30,5 +30,5 @@ class SingleAppManager(InputManager):
         logger.info("Switching to app: {}", app_name)
         if app_name == self.app_name:
             self.activate()
-        else:
+        elif self.active:
             self.deactivate()
