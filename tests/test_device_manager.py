@@ -55,7 +55,7 @@ def test_determine_held_keycodes():
     assert keys == {"G22"}
 
     # test across all five bytes
-    # G2, G10, G15, G19, L3, THUMB_RIGHT
-    bytes_ = [0, 0, 0, 0b00000010, 0b00000010, 0b00010000, 0b00000100, 0]
+    # G2, G10, G15, G19, L2, THUMB_RIGHT
+    bytes_ = [0, 0, 0, 0b00000010, 0b01000010, 0b00000100, 0b000000100, 0b00000100]
     keys = set(manager.determine_held_keycodes(bytes_))
-    assert keys == {"G2", "G10", "G15", "G19", "L3", "THUMB_RIGHT"}
+    assert keys == {"G2", "G10", "G15", "G19", "L2", "THUMB_RIGHT"}
