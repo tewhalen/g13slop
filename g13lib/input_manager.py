@@ -1,3 +1,4 @@
+import time
 import typing
 
 import blinker
@@ -87,7 +88,7 @@ class InputManager:
             self.joystick_repeat_ticks = 0
 
     def handle_keystroke(self, code: str):
-        """Take in a keystroke code and handle it accordingly."""
+        """Take in a G13 keystroke code and handle it accordingly."""
 
         if not self.active:
             return
@@ -111,9 +112,39 @@ class InputManager:
             # as a debugging aid for now, show unhandled codes on the g13 console
             blinker.signal("g13_print").send(code)
 
-    def send_output(self, output_key: tuple | str | pynput.keyboard.Key, action: str):
-        """Send output to the keyboard based on the action and key code."""
-        if type(output_key) is tuple:
+    def send_output(
+        self,
+        output_key: list | tuple | str | pynput.keyboard.Key | int | typing.Callable,
+        action: str,
+    ):
+        """Send output to the keyboard based on the action and key code.
+
+        output_key: the key or keys to send. Supports:
+            - str or Key: single key
+            - tuple: chord (hold all, release in reverse) - only on PRESSED
+            - list: sequence of keys/chords/delays to execute in order
+            - int: delay in milliseconds (only processed in lists)
+            - Callable: a function to be called and passed (self, action), and its return value
+              processed as output_key recursively.
+        action: "PRESSED" or "RELEASED"
+
+        Examples:
+            send_output("a", "PRESSED")  # press 'a'
+            send_output((Key.cmd, "c"), "PRESSED")  # cmd+c chord
+            send_output(["a", "b", 5, "c"], "PRESSED")  # type a, b, wait 5ms, type c
+            send_output(["a", (Key.shift, "b"), 10], "PRESSED")  # type a, then Shift+b, wait 10ms
+        """
+        if type(output_key) is list:
+            if action == "PRESSED":
+                # Process list as a sequence of actions
+                for item in output_key:
+                    if isinstance(item, int):
+                        # Integer = delay in milliseconds
+                        time.sleep(item / 1000.0)
+                    else:
+                        # Recursively process each item (handles nested tuples/keys)
+                        self.send_output(item, "PRESSED")
+        elif type(output_key) is tuple:
             if action == "PRESSED":
                 # multi-code events are only executed on press
                 # hold each in turn
@@ -122,11 +153,15 @@ class InputManager:
                 # release each in reverse order
                 for key in reversed(output_key):
                     self.keyboard.release(key)
-        else:
+        elif type(output_key) is str or isinstance(output_key, pynput.keyboard.Key):
             if action == "PRESSED":
                 self.keyboard.press(output_key)
             elif action == "RELEASED":
                 self.keyboard.release(output_key)
+        elif callable(output_key):
+            result = output_key(self, action)
+            if result is not None:
+                self.send_output(result, action)
 
     def previous_joystick_position(self, j_axis: str) -> tuple[str, str]:
         """Returns direction, value of previous position for relevant axis."""
