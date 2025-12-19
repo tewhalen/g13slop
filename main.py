@@ -15,7 +15,7 @@ from g13lib.monitors.current_app import AppMonitor
 async def main():
 
     # load all the things that listen for signals
-    # probaby this should be more configurable
+    # probably this should be more configurable
     # and allow for reload of application managers
 
     _listeners = [
@@ -37,7 +37,7 @@ async def main():
                     logger.debug("Starting tasks for {}", listener.__class__.__name__)
                     listener.start_tasks(tg)
 
-    except ExceptionGroup[EndProgram]:
+    except* EndProgram:
         blinker.signal("g13_clear_status").send()
         blinker.signal("g13_print").send("That's all!\n \n ")
         logger.success("Exiting...")
