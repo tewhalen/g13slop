@@ -55,15 +55,32 @@ class G13Manager:
         blinker.signal("g13_led_off").connect(self.led_off)
 
     def joystick_position(self, bytes: Sequence[int]):
-        """If the joystick has moved significantly, yield corresponding codes."""
+        """If the joystick has moved significantly, yield corresponding codes.
+
+        When the joystick is centered (or returns to center), only yields
+        the ZERO_0 codes once.
+        """
         joy_x, joy_y = bytes[1], bytes[2]
 
         for code in self.joy_position_to_codes(joy_x, joy_y):
-
-            yield code
+            if code == "JOY_X_ZERO_0" and not self._joy_x_zero:
+                self._joy_x_zero = True
+                yield code
+            elif code == "JOY_Y_ZERO_0" and not self._joy_y_zero:
+                self._joy_y_zero = True
+                yield code
+            elif code.startswith("JOY_X"):
+                self._joy_x_zero = False
+                yield code
+            elif code.startswith("JOY_Y"):
+                self._joy_y_zero = False
+                yield code
+            else:
+                # ????
+                yield code
 
     def joy_position_to_codes(self, joy_x: int, joy_y: int):
-        # joystick positions are betwen 0x00 and 0xFF
+        """Given joystick x and y positions bytes (0x00-0xFF), yield corresponding codes."""
 
         codes = ["NEG_3", "NEG_2", "NEG_1", "ZERO_0", "POS_1", "POS_2", "POS_3"]
         thresholds = [0x25, 0x50, 0x60, 0x80, 0xA0, 0xC0]
@@ -75,24 +92,12 @@ class G13Manager:
         if x_index < len(codes):
             code = codes[x_index]
             if code:
+                yield f"JOY_X_{code}"
 
-                if code.startswith("ZERO"):
-                    if not self._joy_x_zero:
-                        yield f"JOY_X_{code}"
-                        self._joy_x_zero = True
-                else:
-                    self._joy_x_zero = False
-                    yield f"JOY_X_{code}"
         if y_index < len(codes):
             code = list(reversed(codes))[y_index]
             if code:
-                if code.startswith("ZERO"):
-                    if not self._joy_y_zero:
-                        yield f"JOY_Y_{code}"
-                        self._joy_y_zero = True
-                else:
-                    self._joy_y_zero = False
-                    yield f"JOY_Y_{code}"
+                yield f"JOY_Y_{code}"
 
     def determine_held_keycodes(self, bytes: Sequence[int]):
         """Given a bitmask of held keys, yield the corresponding keycodes."""
