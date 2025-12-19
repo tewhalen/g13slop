@@ -10,6 +10,7 @@ import usb.util
 from loguru import logger
 
 import g13lib.data
+from g13lib.async_help import PeriodicComponent, run_periodic
 from g13lib.render_fb import ImageToLPBM, LCDCompositor
 from g13lib.security import drop_root_privs
 
@@ -21,8 +22,7 @@ class G13USBError(Exception):
     pass
 
 
-class G13Manager:
-
+class G13Manager(PeriodicComponent):
     held_keys: set[str]
     led_status: list[int]
 
@@ -47,8 +47,9 @@ class G13Manager:
         self._lcd_framebuffer = PIL.Image.new("RGB", (160, 43))
 
         blinker.signal("tick").connect(self.get_codes)
-        blinker.signal("tick").connect(self.lcd_tick)
+        # blinker.signal("tick").connect(self.lcd_tick)
 
+        self._tasks_to_start = [run_periodic(self.lcd_tick, 33, initial_delay_ms=100)]
         blinker.signal("set_compositor").connect(self.set_compositor)
         blinker.signal("g13_led_toggle").connect(self.toggle_led)
         blinker.signal("g13_led_on").connect(self.led_on)
@@ -130,15 +131,12 @@ class G13Manager:
     async def lcd_tick(self, *msg):
         """Refresh the LCD with the current console framebuffer if it's changed."""
         # refresh at 30 Hz max
-        current_time = time.time()
-        if current_time - self._lcd_tick_timer < 0.033:
-            return
-        self._lcd_tick_timer = current_time
+
         fb_image = self.compositor.render()
         if fb_image != self._lcd_framebuffer:
 
             self._lcd_framebuffer = fb_image
-            self.setLCD(ImageToLPBM(fb_image))
+            await self.setLCD(ImageToLPBM(fb_image))
 
     def start_usb_device(self):
         # USB device for control transfers (LCD, LEDs, backlight)
@@ -240,7 +238,7 @@ class G13Manager:
             data_or_wLength=data,
         )
 
-    def setLCD(self, image_buffer: list[int]):
+    async def setLCD(self, image_buffer: list[int]):
         header = [0] * 32
         header[0] = 0x03
 

@@ -14,38 +14,38 @@ from g13lib.monitors.current_app import AppMonitor
 
 async def main():
 
-    m = G13Manager()
-
     # load all the things that listen for signals
     # probaby this should be more configurable
     # and allow for reload of application managers
 
     _listeners = [
+        G13Manager(),
         DavinciInputManager(),
         VSCodeInputManager(),
         AppMonitor(),
         GeneralManager(),
     ]
-    logger.debug("Initialized %d listeners", len(_listeners))
+    logger.debug("Initialized {} listeners", len(_listeners))
 
     try:
         blinker.signal("release_focus").send()
         # Run core loops and periodic tasks concurrently
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(read_data_loop(m))
+            tg.create_task(read_data_loop())
             for listener in _listeners:
                 if hasattr(listener, "start_tasks"):
+                    logger.debug("Starting tasks for {}", listener.__class__.__name__)
                     listener.start_tasks(tg)
 
-    except EndProgram:
+    except ExceptionGroup[EndProgram]:
         blinker.signal("g13_clear_status").send()
         blinker.signal("g13_print").send("That's all!\n \n ")
         logger.success("Exiting...")
     finally:
-        m.close()
+        _listeners[0].close()
 
 
-async def read_data_loop(device_manager: G13Manager):
+async def read_data_loop():
     """Currently this is a loop that reads data from the USB device."""
     # probably we should be using an interrupt?
     error_count = 0
