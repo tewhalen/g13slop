@@ -6,6 +6,7 @@ from loguru import logger
 
 from g13lib.apps.davinci_resolve import DavinciInputManager
 from g13lib.apps.general import GeneralManager
+from g13lib.apps.vscode import VSCodeInputManager
 from g13lib.device_manager import G13Manager, G13USBError
 from g13lib.input_manager import EndProgram
 from g13lib.monitors.current_app import AppMonitor
@@ -21,6 +22,7 @@ def main():
 
     listeners = [
         DavinciInputManager(),
+        VSCodeInputManager(),
         AppMonitor(),
         GeneralManager(),
     ]
