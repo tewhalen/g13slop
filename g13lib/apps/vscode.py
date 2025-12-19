@@ -1,3 +1,20 @@
+"""
+An example of the sort of thing that can be done with this framework.
+
+Pressing the G1 key will trigger running all tests in VSCode. If you have
+pytest (or whatever your framework is) configured to output junitxml
+formatted test results to /tmp/test_results.xml, the results will be
+monitored and printed to the G13 terminal when they change.
+
+For pytest, this configuration can be done by adding the following to your
+project's pyproject.toml file:
+
+        [tool.pytest]
+        addopts = ["--junitxml=/tmp/test_results.xml"]
+
+
+"""
+
 import time
 from pathlib import Path
 
@@ -68,6 +85,13 @@ class PytestOutputMonitor:
 
 
 class VSCodeInputManager(SingleAppManager):
+    """
+    This manager is designed to work with VSCode. Pressing G1 will
+    trigger running all tests (cmd+; then 'a'). The results will be
+    monitored from /tmp/test_results.xml and printed to the G13 terminal
+    when they change.
+    """
+
     app_name = "Code"
 
     def __init__(self):
