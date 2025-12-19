@@ -127,7 +127,7 @@ class G13Manager:
 
         self.compositor = compositor
 
-    def lcd_tick(self, *msg):
+    async def lcd_tick(self, *msg):
         """Refresh the LCD with the current console framebuffer if it's changed."""
         # refresh at 30 Hz max
         current_time = time.time()
@@ -162,7 +162,7 @@ class G13Manager:
         cfg = usb.util.find_descriptor(self.usb_device)
         self.usb_device.set_configuration(cfg)
 
-    def get_codes(self, msg=None):
+    async def get_codes(self, msg=None):
         """Poll the USB device for key events and joystick positions."""
         try:
             read_result = self.read_data()

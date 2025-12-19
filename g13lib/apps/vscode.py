@@ -33,7 +33,7 @@ class PytestOutputMonitor:
         self.file_updates = {log_file: 0 for log_file in log_files}
         blinker.signal("tick").connect(self.check_output)
 
-    def check_output(self, msg):
+    async def check_output(self, msg):
         # every ms is too often, so only check every second
         current_time = time.time()
 

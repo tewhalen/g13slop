@@ -70,7 +70,7 @@ class InputManager:
         """returns true when the joystick is outside of the center position."""
         return any(x[-1] != "0" for x in self._previous_joystick_positions)
 
-    def on_tick(self, msg):
+    async def on_tick(self, msg):
         """Called on each main loop tick to handle joystick repeat events."""
         if not self.active:
             return

@@ -1,5 +1,5 @@
+import asyncio
 import sys
-import time
 
 import blinker
 from loguru import logger
@@ -12,7 +12,7 @@ from g13lib.input_manager import EndProgram
 from g13lib.monitors.current_app import AppMonitor
 
 
-def main():
+async def main():
 
     m = G13Manager()
 
@@ -20,16 +20,23 @@ def main():
     # probaby this should be more configurable
     # and allow for reload of application managers
 
-    listeners = [
+    _listeners = [
         DavinciInputManager(),
         VSCodeInputManager(),
         AppMonitor(),
         GeneralManager(),
     ]
+    logger.debug("Initialized %d listeners", len(_listeners))
 
     try:
         blinker.signal("release_focus").send()
-        read_data_loop(m)
+        # Run core loops and periodic tasks concurrently
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(read_data_loop(m))
+            for listener in _listeners:
+                if hasattr(listener, "start_tasks"):
+                    listener.start_tasks(tg)
+
     except EndProgram:
         blinker.signal("g13_clear_status").send()
         blinker.signal("g13_print").send("That's all!\n \n ")
@@ -38,20 +45,20 @@ def main():
         m.close()
 
 
-def read_data_loop(device_manager: G13Manager):
+async def read_data_loop(device_manager: G13Manager):
     """Currently this is a loop that reads data from the USB device."""
     # probably we should be using an interrupt?
     error_count = 0
     while True:
         if error_count > 5:
             # give up
-            break
+            raise EndProgram()
 
         # check for input every 1ms
-        time.sleep(0.001)
+        await asyncio.sleep(0.001)
 
         # send a tick signal to all listeners
-        results = blinker.signal("tick").send()
+        results = await blinker.signal("tick").send_async()
 
         for listener, return_value in results:
 
@@ -61,4 +68,5 @@ def read_data_loop(device_manager: G13Manager):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)
