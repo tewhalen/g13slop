@@ -31,8 +31,9 @@ class PytestOutputMonitor:
     file_updates: dict[Path, float]
     _tasks_to_start: list
 
-    def __init__(self, log_files: list[Path]):
+    def __init__(self, vs_code_monitor, log_files: list[Path]):
         self.test_output = ""
+        self.vs_code_monitor = vs_code_monitor
         self.file_updates = {log_file: 0.0 for log_file in log_files}
         self._tasks_to_start = [
             run_periodic(self.check_output, 1000, initial_delay_ms=500)
@@ -43,6 +44,11 @@ class PytestOutputMonitor:
         # look for test output in designated spaces and
         # if updated, load it in and print results to the
         # g13 terminal.
+
+        # only look if the vs code app is active
+        if not self.vs_code_monitor.active:
+            return
+
         for file_path, last_mtime in self.file_updates.items():
             try:
                 mtime = file_path.stat().st_mtime
@@ -94,7 +100,9 @@ class VSCodeInputManager(SingleAppManager, PeriodicComponent):
 
     def __init__(self):
         super().__init__()
-        self._pytest_monitor = PytestOutputMonitor([Path("/tmp/test_results.xml")])
+        self._pytest_monitor = PytestOutputMonitor(
+            self, [Path("/tmp/test_results.xml")]
+        )
         self._tasks_to_start = self._pytest_monitor._tasks_to_start
 
     def run_all_tests(self, action, key_code):
