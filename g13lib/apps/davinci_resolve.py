@@ -3,7 +3,6 @@ from PIL import Image
 
 import g13lib.keylib as keylib
 from g13lib.lcd.images import DecayingImage
-from g13lib.lcd.terminal import LogEmulator
 from g13lib.render_fb import LCDCompositor
 from g13lib.single_app_manager import SingleAppManager
 
@@ -24,16 +23,16 @@ class DavinciInputManager(SingleAppManager):
 
     def compositor(self):
         return LCDCompositor(
-            LogEmulator(),
+            self._terminal,
             DecayingImage(self.icon, (64, 0)),
         )
 
     def activate(self):
         # activate the compositor first
-        blinker.signal("set_compositor").send(self.compositor())
+        res = super().activate()
 
         blinker.signal("g13_set_status").send("edit   fusion  color")
-        return super().activate()
+        return res
 
     def deactivate(self):
         blinker.signal("g13_clear_status").send()
