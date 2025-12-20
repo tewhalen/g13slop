@@ -20,13 +20,9 @@ class G13Manager:
     def __init__(self, g13_usb_device: G13USBDevice):
         super().__init__()
 
-        # initialize the USB device and drop root privs
-
         self.g13_usb_device = g13_usb_device
 
         self.held_keys = set()
-
-        # blinker.signal("tick").connect(self.get_codes)
 
     def joystick_position(self, bytes: Sequence[int]):
         """If the joystick has moved significantly, yield corresponding codes.
@@ -102,9 +98,9 @@ class G13Manager:
 
         read_result = self.g13_usb_device.read_data()
 
-        if type(read_result) is list:
+        if isinstance(read_result, Sequence):
+            for i, event in enumerate(self.key_events(read_result)):
 
-            for event in self.key_events(read_result):
                 blinker.signal("g13_key").send(event)
 
             for event in self.joystick_position(read_result):
