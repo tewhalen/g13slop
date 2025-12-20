@@ -1,30 +1,19 @@
 import bisect
-import errno
-import time
 from typing import Sequence
 
 import blinker
 import PIL.Image
-import usb.core
-import usb.util
 from loguru import logger
 
 import g13lib.data
 from g13lib.async_help import PeriodicComponent, run_periodic
-from g13lib.render_fb import ImageToLPBM, LCDCompositor
-from g13lib.security import drop_root_privs
-
-product_id = "0xc21c"
-vendor_id = "0x046d"
-
-
-class G13USBError(Exception):
-    pass
+from g13lib.device.g13_usb_device import G13USBDevice
+from g13lib.render_fb import LCDCompositor
 
 
 class G13Manager(PeriodicComponent):
 
-    usb_device: usb.core.Device
+    g13_usb_device: G13USBDevice
 
     held_keys: set[str]
     led_status: list[int]
@@ -35,18 +24,15 @@ class G13Manager(PeriodicComponent):
     _joy_x_zero: bool = True
     _joy_y_zero: bool = True
 
-    # setting this number lower than 100
-    # seems to cause lots of USB errors
-    # at least on my system with my device
-    READ_TIMEOUT_MS = 100
-
     # this seems fine
     LCD_REFRESH_MS = 33  # refresh at ~30 Hz
 
     def __init__(self):
+        super().__init__()
 
         # initialize the USB device and drop root privs
-        self.start_usb_device()
+
+        self.g13_usb_device = G13USBDevice()
 
         self.held_keys = set()
         self.led_status = [0, 0, 0, 0]
@@ -145,119 +131,36 @@ class G13Manager(PeriodicComponent):
         if fb_image != self._lcd_framebuffer:
 
             self._lcd_framebuffer = fb_image
-            await self.setLCD(ImageToLPBM(fb_image))
-
-    def start_usb_device(self):
-        # USB device for control transfers (LCD, LEDs, backlight)
-        usb_device = usb.core.find(idVendor=0x046D, idProduct=0xC21C)
-        if usb_device is None:
-            raise ValueError("G13 device not found")
-        elif type(usb_device) is not usb.core.Device:
-            raise ValueError("Invalid USB device")
-        # okay, great
-        self.usb_device = usb_device
-
-        if self.usb_device.is_kernel_driver_active(0):
-            self.usb_device.detach_kernel_driver(0)
-
-        # at this point, we're initialized to the point
-        # where we should drop root privileges
-        drop_root_privs()
-
-        # honestly not sure what this does or whether it's necessary
-        # but it seems to be a good practice
-        cfg = usb.util.find_descriptor(self.usb_device)
-        self.usb_device.set_configuration(cfg)
-        logger.success("G13 USB device initialized")
+            await self.g13_usb_device.setLCD(fb_image)
 
     async def get_codes(self, msg=None):
         """Poll the USB device for key events and joystick positions."""
-        try:
-            read_result = self.read_data()
-        except usb.core.USBError as e:
-            if e.errno in (errno.EPIPE, errno.EIO):  # pipe error?
-                logger.error("USB Error: {}, resetting", e)
-                self.usb_device.reset()
-                return G13USBError(str(e))
 
-            # re-raise the unhandled exception...
-            # maybe handle them in the future?
-            logger.error("Unhandled USB Error: {} ({})", e, e.errno)
-            raise
-        if read_result:
+        read_result = self.g13_usb_device.read_data()
+
+        if type(read_result) is list:
 
             for event in self.key_events(read_result):
                 blinker.signal("g13_key").send(event)
 
             for event in self.joystick_position(read_result):
                 blinker.signal("g13_joy").send(event)
-
-    def read_data(self) -> list[int] | None:
-        """Read 8 bytes from the USB device. If the read times out, return None."""
-
-        d = None
-        try:
-            d = self.usb_device.read(0x81, 8, self.READ_TIMEOUT_MS)
-        except usb.core.USBError as e:
-            if e.errno == errno.ETIMEDOUT:  # Timeout error
-                pass
-            else:
-                raise
-        return d
+        return read_result
 
     def toggle_led(self, led_no: int):
         self.led_status[led_no] = 1 - self.led_status[led_no]
-        self.update_leds()
+        self.g13_usb_device.update_leds(self.led_status)
 
     def led_on(self, led_no: int):
         self.led_status[led_no] = 1
-        self.update_leds()
+        self.g13_usb_device.update_leds(self.led_status)
 
     def led_off(self, led_no: int):
         self.led_status[led_no] = 0
-        self.update_leds()
-
-    def update_leds(self):
-        # use the led status to make a binary bitmask
-        mask = 0
-        for i, status in enumerate(self.led_status):
-            if status:
-                mask |= 1 << i
-
-        # and the mask with 0x0F
-        # mask = mask & 0x0F
-        data = [5, mask, 0, 0, 0]
-
-        self.usb_device.ctrl_transfer(
-            usb.util.CTRL_TYPE_CLASS | usb.util.CTRL_RECIPIENT_INTERFACE,
-            bRequest=9,
-            wValue=0x305,
-            wIndex=0,
-            data_or_wLength=data,
-        )
-
-    def set_backlight(self, r: int, g: int, b: int):
-        data = [7, int(r), int(g), int(b), 0]
-        self.usb_device.ctrl_transfer(
-            usb.util.CTRL_TYPE_CLASS | usb.util.CTRL_RECIPIENT_INTERFACE,
-            bRequest=9,
-            wValue=0x307,
-            wIndex=0,
-            data_or_wLength=data,
-        )
-
-    async def setLCD(self, image_buffer: list[int]):
-        header = [0] * 32
-        header[0] = 0x03
-
-        self.usb_device.write(
-            usb.util.CTRL_OUT | 2,  # Endpoint 2 for LCD
-            bytes(header) + bytes(image_buffer),
-        )
+        self.g13_usb_device.update_leds(self.led_status)
 
     def close(self):
-        self.usb_device.reset()
-        usb.util.dispose_resources(self.usb_device)
+        self.g13_usb_device.close()
 
 
 def print_as_decoded_bytes(data):
