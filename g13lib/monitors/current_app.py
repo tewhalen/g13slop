@@ -6,6 +6,8 @@ from AppKit import NSWorkspace
 from loguru import logger
 from PIL import Image
 
+from g13lib.async_help import PeriodicComponent, run_periodic
+
 
 def trim_image(image: Image.Image) -> Image.Image:
     """Trim the transparent edges from an image."""
@@ -15,7 +17,7 @@ def trim_image(image: Image.Image) -> Image.Image:
     return image  # no content, return as is
 
 
-class AppMonitor:
+class AppMonitor(PeriodicComponent):
     """Sits around and listens for ticks, every 0.1 seconds it checks and
     notifies when the current application changes.
 
@@ -23,13 +25,10 @@ class AppMonitor:
     """
 
     current_app: str | None
-    last_poll: float
 
     def __init__(self):
         self.current_app = self.detect_current_application()
-        self.last_poll = time.time()
-
-        blinker.signal("tick").connect(self.handle_tick)
+        self._tasks_to_start = [run_periodic(self.notify, 100, initial_delay_ms=100)]
 
     def detect_current_application(self) -> str:
         active_app = NSWorkspace.sharedWorkspace().activeApplication()
@@ -47,16 +46,10 @@ class AppMonitor:
 
                 return icon_image
 
-    def handle_tick(self, msg) -> bool:
-        # if it's been at least a 1/10th second
-        if time.time() - self.last_poll < 0.1:
-            return False
-        return self.notify()
-
-    def notify(self) -> bool:
+    async def notify(self) -> bool:
 
         try:
-            self.last_poll = time.time()
+
             active_app = self.detect_current_application()
         except Exception as e:
             logger.error("Error detecting current application: {}", e)

@@ -9,9 +9,15 @@ So here's the basics in Python and you can roll your own application support.
 
 ## How it works
 
-Well, it uses a signal-based architecture to allow components to be relatively independent. The main loop sends a "tick" signal every 1ms to everything listening for that signal, primary among them the DeviceManager, which polls the G13 for key signals every 1ms and updates the LCD (if it's changed) every 10ms.
+Well, it uses a signal-based architecture to allow components to be relatively independent. The interface with the USB device itself sits in its own thread, using queues for input/output. The main loop watches the input queue and then sends those key codes out as signals. There's also separate async tasks for everything that needs to update regularly, like updating the LCD if it's changed every 33ms or so.
+
+Haven't run into any latency issues yet, but a real gamer might? I haven't tested (or thought much about how to test) how long it takes a keypress on the G13 to turn into a keystroke passed to the OS.
+
+Probably the longer-term solution if performance becomes an issue is more threading? I imagine it should be another thread that sends sequences of keystrokes to the active application. The rest of the logic can likely sit in the main loop pretty comfortably. We'll cross that bridge when we come to it.
 
 The LCD content is handled by setting a LCDCompositor (using the `set_compositor` signal) for the DeviceManager to ask for updated frames every 10ms. There'a also a little "terminal emulator" in `lcd/terminal.py` which support stuff like setting a status line and "printing" to the LCD.
+
+
 
 ## Unfortunate Aspects
 

@@ -22,27 +22,33 @@ import blinker
 from PIL import Image
 
 import g13lib.keylib as keylib
+from g13lib.async_help import PeriodicComponent, run_periodic
 from g13lib.single_app_manager import SingleAppManager
 
 
 class PytestOutputMonitor:
     _last_check_time: float = 0.0
+    file_updates: dict[Path, float]
+    _tasks_to_start: list
 
-    def __init__(self, log_files: list[Path]):
+    def __init__(self, vs_code_monitor, log_files: list[Path]):
         self.test_output = ""
-        self.file_updates = {log_file: 0 for log_file in log_files}
-        blinker.signal("tick").connect(self.check_output)
+        self.vs_code_monitor = vs_code_monitor
+        self.file_updates = {log_file: 0.0 for log_file in log_files}
+        self._tasks_to_start = [
+            run_periodic(self.check_output, 1000, initial_delay_ms=500)
+        ]
 
-    def check_output(self, msg):
-        # every ms is too often, so only check every second
-        current_time = time.time()
+    async def check_output(self, *msg):
 
-        if current_time - self._last_check_time < 1.0:
-            return
-        self._last_check_time = current_time
         # look for test output in designated spaces and
         # if updated, load it in and print results to the
         # g13 terminal.
+
+        # only look if the vs code app is active
+        if not self.vs_code_monitor.active:
+            return
+
         for file_path, last_mtime in self.file_updates.items():
             try:
                 mtime = file_path.stat().st_mtime
@@ -76,15 +82,13 @@ class PytestOutputMonitor:
         errors = int(pytest_suite.attrib.get("errors", "0"))
         skipped = int(pytest_suite.attrib.get("skipped", "0"))
         if failures:
-            blinker.signal("g13_print").send("FAILED\n")
+            blinker.signal("g13_print").send(f"{failures}/{tests} FAILED\n")
         else:
-            blinker.signal("g13_print").send("PASSED\n")
-        blinker.signal("g13_print").send(
-            f"{tests}, Failures: {failures}, Errors: {errors}, Skipped: {skipped}\n"
-        )
+            blinker.signal("g13_print").send(f"{tests}/{tests} PASSED\n")
+        blinker.signal("g13_print").send(f"Errors: {errors}, Skipped: {skipped}\n")
 
 
-class VSCodeInputManager(SingleAppManager):
+class VSCodeInputManager(SingleAppManager, PeriodicComponent):
     """
     This manager is designed to work with VSCode. Pressing G1 will
     trigger running all tests (cmd+; then 'a'). The results will be
@@ -96,7 +100,10 @@ class VSCodeInputManager(SingleAppManager):
 
     def __init__(self):
         super().__init__()
-        self._pytest_monitor = PytestOutputMonitor([Path("/tmp/test_results.xml")])
+        self._pytest_monitor = PytestOutputMonitor(
+            self, [Path("/tmp/test_results.xml")]
+        )
+        self._tasks_to_start = self._pytest_monitor._tasks_to_start
 
     def run_all_tests(self, action, key_code):
         # send a cmd+; and then an 'a'

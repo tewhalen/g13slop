@@ -3,6 +3,9 @@ import typing
 
 import blinker
 import pynput
+from loguru import logger
+
+from g13lib.async_help import PeriodicComponent, run_periodic
 
 
 def split_joystick_code(code: str) -> tuple[str, str, str]:
@@ -14,7 +17,7 @@ class EndProgram(Exception):
     pass
 
 
-class InputManager:
+class InputManager(PeriodicComponent):
     """Receives codes from the device and outputs keyboard and mouse events."""
 
     direct_mapping: dict[
@@ -43,8 +46,9 @@ class InputManager:
     # Joystick repeat tracking
     _previous_joystick_positions: list[str]
 
-    REPEAT_START_TICKS = 10  # ~500ms at 50ms/tick
-    REPEAT_INTERVAL_TICKS = 2  # Repeat every ~100ms
+    JOY_REPEAT_DELAY = 500
+    JOY_REPEAT_INTERVAL = 100
+
     joystick_repeat_ticks: int = 0
 
     def __init__(self):
@@ -56,7 +60,13 @@ class InputManager:
         blinker.signal("app_changed").connect(self.app_changed)
         blinker.signal("g13_key").connect(self.handle_keystroke)
         blinker.signal("g13_joy").connect(self.handle_joystick)
-        blinker.signal("tick").connect(self.on_tick)
+
+        # set up task for joystick repeat handling
+        self._tasks_to_start = [
+            run_periodic(
+                self.joystick_repeat, self.JOY_REPEAT_INTERVAL, initial_delay_ms=1000
+            )
+        ]
 
     def activate(self, msg):
         """Make this manager active and responsive to events and input."""
@@ -70,28 +80,29 @@ class InputManager:
         """returns true when the joystick is outside of the center position."""
         return any(x[-1] != "0" for x in self._previous_joystick_positions)
 
-    def on_tick(self, msg):
-        """Called on each main loop tick to handle joystick repeat events."""
+    async def joystick_repeat(self):
+        """Called every JOY_REPEAT_INTERVAL to handle joystick repeat events."""
+
         if not self.active:
             return
 
         if self.joystick_held():
             self.joystick_repeat_ticks += 1
-            if self.joystick_repeat_ticks == self.REPEAT_START_TICKS:
+            if (
+                self.joystick_repeat_ticks
+                > self.JOY_REPEAT_DELAY // self.JOY_REPEAT_INTERVAL
+            ):
                 # Start repeating after initial delay
-                self.emit_repeat_scroll()
-            elif self.joystick_repeat_ticks > self.REPEAT_START_TICKS:
-                # Continue repeating at interval
-
                 self.emit_repeat_scroll()
         else:
             self.joystick_repeat_ticks = 0
 
-    def handle_keystroke(self, code: str):
+    async def handle_keystroke(self, code: str):
         """Take in a G13 keystroke code and handle it accordingly."""
 
         if not self.active:
             return
+
         action = code.split("_")[-1]
         key_code = "_".join(code.split("_")[:-1])
         output_key = self.direct_mapping.get(key_code)
@@ -188,7 +199,7 @@ class InputManager:
 
         return False
 
-    def handle_joystick(self, code: str):
+    async def handle_joystick(self, code: str):
         """Take in a joystick code and handle it accordingly.
 
         Joystick codes are of the form JOY_X_{direction}_{value} where direction is
