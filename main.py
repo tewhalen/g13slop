@@ -67,7 +67,7 @@ async def read_data_loop(device_manager: G13Manager):
         # check for input every 1ms
         await asyncio.sleep(0.001)
 
-        # send a tick signal to all listeners
+        # read any data waiting for us at the device
         return_value = await device_manager.get_codes()
 
         if isinstance(return_value, G13USBError):
