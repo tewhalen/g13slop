@@ -94,7 +94,7 @@ class G13Manager:
         self.held_keys = seen_keys
 
     async def get_codes(self, msg=None):
-        """Poll the USB device for key events and joystick positions."""
+        """Process the input queue from the USB device for key events and joystick positions."""
 
         read_result = self.g13_usb_device.read_data()
 

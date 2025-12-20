@@ -54,7 +54,7 @@ class G13DeviceOutputManager(PeriodicComponent):
         if fb_image != self._lcd_framebuffer:
 
             self._lcd_framebuffer = fb_image
-            await self.g13_usb_device.setLCD(fb_image)
+            self.g13_usb_device.setLCD(fb_image)
 
     def toggle_led(self, led_no: int):
         """Toggle the state of the specified LED on the G13 device."""
