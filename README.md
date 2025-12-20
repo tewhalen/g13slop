@@ -14,7 +14,11 @@ and then sends those key codes out as signals. There's also separate async tasks
 
 Haven't run into any latency issues yet, but a real gamer might? I haven't tested (or thought much about how to test) how long it takes a keypress on the G13 to turn into a keystroke passed to the OS.
 
+Probably the longer-term solution if performance becomes an issue is threading. I imagine it should be one thread that reads keystrokes from the G13 and another that sends sequences of keystrokes to the active application. The rest of the logic can likely sit in the main loop pretty comfortably. I think this may run into USB permission/access issues, though? We'll cross that bridge when we come to it.
+
 The LCD content is handled by setting a LCDCompositor (using the `set_compositor` signal) for the DeviceManager to ask for updated frames every 10ms. There'a also a little "terminal emulator" in `lcd/terminal.py` which support stuff like setting a status line and "printing" to the LCD.
+
+
 
 ## Unfortunate Aspects
 
