@@ -3,6 +3,7 @@ import typing
 
 import blinker
 import pynput
+from loguru import logger
 
 from g13lib.async_help import PeriodicComponent, run_periodic
 
@@ -96,11 +97,12 @@ class InputManager(PeriodicComponent):
         else:
             self.joystick_repeat_ticks = 0
 
-    def handle_keystroke(self, code: str):
+    async def handle_keystroke(self, code: str):
         """Take in a G13 keystroke code and handle it accordingly."""
 
         if not self.active:
             return
+
         action = code.split("_")[-1]
         key_code = "_".join(code.split("_")[:-1])
         output_key = self.direct_mapping.get(key_code)
@@ -197,7 +199,7 @@ class InputManager(PeriodicComponent):
 
         return False
 
-    def handle_joystick(self, code: str):
+    async def handle_joystick(self, code: str):
         """Take in a joystick code and handle it accordingly.
 
         Joystick codes are of the form JOY_X_{direction}_{value} where direction is

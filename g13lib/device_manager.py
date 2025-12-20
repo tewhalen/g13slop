@@ -101,10 +101,10 @@ class G13Manager:
         if isinstance(read_result, Sequence):
             for i, event in enumerate(self.key_events(read_result)):
 
-                blinker.signal("g13_key").send(event)
+                await blinker.signal("g13_key").send_async(event)
 
             for event in self.joystick_position(read_result):
-                blinker.signal("g13_joy").send(event)
+                await blinker.signal("g13_joy").send_async(event)
         return read_result
 
     def close(self):
