@@ -8,7 +8,8 @@ from loguru import logger
 from g13lib.apps.davinci_resolve import DavinciInputManager
 from g13lib.apps.general import GeneralManager
 from g13lib.apps.vscode import VSCodeInputManager
-from g13lib.device.g13_usb_device import G13USBError
+from g13lib.device.g13_output import G13DeviceOutputManager
+from g13lib.device.g13_usb_device import G13USBDevice, G13USBError
 from g13lib.device_manager import G13Manager
 from g13lib.input_manager import EndProgram
 from g13lib.monitors.current_app import AppMonitor
@@ -20,7 +21,9 @@ async def main():
     # probably this should be more configurable
     # and allow for reload of application managers
 
-    device_manager = G13Manager()
+    usb_device_manager = G13USBDevice()
+
+    device_input_manager = G13Manager(usb_device_manager)
 
     # we're trying to avoid USB errors on startup
     # if we try to read too soon after opening the device
@@ -29,7 +32,8 @@ async def main():
     time.sleep(0.5)  # give some time for the device to initialize
 
     _listeners = [
-        device_manager,
+        device_input_manager,
+        G13DeviceOutputManager(usb_device_manager),
         DavinciInputManager(),
         VSCodeInputManager(),
         AppMonitor(),
@@ -41,7 +45,7 @@ async def main():
         blinker.signal("release_focus").send()
         # Run core loops and periodic tasks concurrently
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(read_data_loop(device_manager))
+            tg.create_task(read_data_loop(device_input_manager))
             for listener in _listeners:
                 if hasattr(listener, "start_tasks"):
                     logger.debug("Starting tasks for {}", listener.__class__.__name__)
@@ -53,7 +57,7 @@ async def main():
         logger.success("Exiting...")
     finally:
         logger.success("Closing device manager...")
-        device_manager.close()
+        usb_device_manager.close()
 
 
 async def read_data_loop(device_manager: G13Manager):
