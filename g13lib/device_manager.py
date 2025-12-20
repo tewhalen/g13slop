@@ -34,6 +34,11 @@ class G13Manager(PeriodicComponent):
     _joy_x_zero: bool = True
     _joy_y_zero: bool = True
 
+    # setting this number lower than 100
+    # seems to cause lots of USB errors
+    # at least on my system with my device
+    READ_TIMEOUT_MS = 100
+
     def __init__(self):
 
         # initialize the USB device and drop root privs
@@ -152,13 +157,14 @@ class G13Manager(PeriodicComponent):
             self.usb_device.detach_kernel_driver(0)
 
         # at this point, we're initialized to the point
-        # where we can drop root privileges
+        # where we should drop root privileges
         drop_root_privs()
 
         # honestly not sure what this does or whether it's necessary
         # but it seems to be a good practice
         cfg = usb.util.find_descriptor(self.usb_device)
         self.usb_device.set_configuration(cfg)
+        logger.success("G13 USB device initialized")
 
     async def get_codes(self, msg=None):
         """Poll the USB device for key events and joystick positions."""
@@ -188,7 +194,7 @@ class G13Manager(PeriodicComponent):
 
         d = None
         try:
-            d = self.usb_device.read(0x81, 8, 100)
+            d = self.usb_device.read(0x81, 8, self.READ_TIMEOUT_MS)
         except usb.core.USBError as e:
             if e.errno == errno.ETIMEDOUT:  # Timeout error
                 pass

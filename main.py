@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import time
 
 import blinker
 from loguru import logger
@@ -18,8 +19,16 @@ async def main():
     # probably this should be more configurable
     # and allow for reload of application managers
 
+    device_manager = G13Manager()
+
+    # we're trying to avoid USB errors on startup
+    # if we try to read too soon after opening the device
+    # we seek to get spurious I/O and Permission Denied errors
+    # so just wait a bit
+    time.sleep(0.5)  # give some time for the device to initialize
+
     _listeners = [
-        G13Manager(),
+        device_manager,
         DavinciInputManager(),
         VSCodeInputManager(),
         AppMonitor(),
@@ -42,7 +51,8 @@ async def main():
         blinker.signal("g13_print").send("That's all!\n \n ")
         logger.success("Exiting...")
     finally:
-        _listeners[0].close()
+        logger.success("Closing device manager...")
+        device_manager.close()
 
 
 async def read_data_loop():
@@ -64,7 +74,7 @@ async def read_data_loop():
 
             if isinstance(return_value, G13USBError):
                 error_count += 1
-                logger.error("USB Error: %s", return_value)
+                logger.error("USB Error: {}", return_value)
 
 
 if __name__ == "__main__":
