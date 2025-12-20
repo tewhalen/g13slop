@@ -23,14 +23,15 @@ class G13USBError(Exception):
 
 
 class G13Manager(PeriodicComponent):
+
+    usb_device: usb.core.Device
+
     held_keys: set[str]
     led_status: list[int]
 
     compositor: LCDCompositor
-    _lcd_tick_timer: float = 0.0
     _lcd_framebuffer: PIL.Image.Image
 
-    usb_device: usb.core.Device
     _joy_x_zero: bool = True
     _joy_y_zero: bool = True
 
@@ -39,6 +40,9 @@ class G13Manager(PeriodicComponent):
     # at least on my system with my device
     READ_TIMEOUT_MS = 100
 
+    # this seems fine
+    LCD_REFRESH_MS = 33  # refresh at ~30 Hz
+
     def __init__(self):
 
         # initialize the USB device and drop root privs
@@ -46,15 +50,15 @@ class G13Manager(PeriodicComponent):
 
         self.held_keys = set()
         self.led_status = [0, 0, 0, 0]
-        self._joystick_codes = set()
 
         self.compositor = LCDCompositor()
         self._lcd_framebuffer = PIL.Image.new("RGB", (160, 43))
 
-        blinker.signal("tick").connect(self.get_codes)
-        # blinker.signal("tick").connect(self.lcd_tick)
+        # blinker.signal("tick").connect(self.get_codes)
 
-        self._tasks_to_start = [run_periodic(self.lcd_tick, 33, initial_delay_ms=100)]
+        self._tasks_to_start = [
+            run_periodic(self.lcd_tick, self.LCD_REFRESH_MS, initial_delay_ms=100)
+        ]
         blinker.signal("set_compositor").connect(self.set_compositor)
         blinker.signal("g13_led_toggle").connect(self.toggle_led)
         blinker.signal("g13_led_on").connect(self.led_on)
@@ -181,16 +185,15 @@ class G13Manager(PeriodicComponent):
             logger.error("Unhandled USB Error: {} ({})", e, e.errno)
             raise
         if read_result:
-            events = list(self.key_events(read_result))
-            for event in events:
+
+            for event in self.key_events(read_result):
                 blinker.signal("g13_key").send(event)
 
-            joy_events = list(self.joystick_position(read_result))
-            for event in joy_events:
+            for event in self.joystick_position(read_result):
                 blinker.signal("g13_joy").send(event)
 
-    def read_data(self) -> list[int]:
-        """Read 8 bytes from the USB device."""
+    def read_data(self) -> list[int] | None:
+        """Read 8 bytes from the USB device. If the read times out, return None."""
 
         d = None
         try:
@@ -198,7 +201,6 @@ class G13Manager(PeriodicComponent):
         except usb.core.USBError as e:
             if e.errno == errno.ETIMEDOUT:  # Timeout error
                 pass
-
             else:
                 raise
         return d

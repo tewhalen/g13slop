@@ -40,7 +40,7 @@ async def main():
         blinker.signal("release_focus").send()
         # Run core loops and periodic tasks concurrently
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(read_data_loop())
+            tg.create_task(read_data_loop(device_manager))
             for listener in _listeners:
                 if hasattr(listener, "start_tasks"):
                     logger.debug("Starting tasks for {}", listener.__class__.__name__)
@@ -55,7 +55,7 @@ async def main():
         device_manager.close()
 
 
-async def read_data_loop():
+async def read_data_loop(device_manager: G13Manager):
     """Currently this is a loop that reads data from the USB device."""
     # probably we should be using an interrupt?
     error_count = 0
@@ -68,13 +68,11 @@ async def read_data_loop():
         await asyncio.sleep(0.001)
 
         # send a tick signal to all listeners
-        results = await blinker.signal("tick").send_async()
+        return_value = await device_manager.get_codes()
 
-        for listener, return_value in results:
-
-            if isinstance(return_value, G13USBError):
-                error_count += 1
-                logger.error("USB Error: {}", return_value)
+        if isinstance(return_value, G13USBError):
+            error_count += 1
+            logger.error("USB Error: {}", return_value)
 
 
 if __name__ == "__main__":
