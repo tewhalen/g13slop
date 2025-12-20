@@ -3,19 +3,11 @@ from typing import Sequence
 
 import pytest
 
-from g13lib.device_manager import G13Manager, G13USBError
-
-
-# create a version of the G13Manager that doesn't try to access USB hardware
-# and instead has a mock usb_device attribute
-class MockG13Manager(G13Manager):
-    def start_usb_device(self):
-        # Override to avoid USB initialization
-        self.usb_device = mock.MagicMock()
+from g13lib.device_manager import G13Manager
 
 
 def test_joy_position_parsing():
-    manager = MockG13Manager()
+    manager = G13Manager(g13_usb_device=mock.MagicMock())
 
     # Test joystick centered
     codes = list(manager.joy_position_to_codes(0x80, 0x80))
@@ -31,7 +23,7 @@ def test_joy_position_parsing():
 
 
 def test_determine_held_keycodes():
-    manager = MockG13Manager()
+    manager = G13Manager(g13_usb_device=mock.MagicMock())
 
     # G1-G8 are in byte 3
     # G9-G16 are in byte 4
