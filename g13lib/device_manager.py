@@ -4,8 +4,7 @@ from typing import Sequence
 import blinker
 from loguru import logger
 
-import g13lib.data
-from g13lib.async_help import PeriodicComponent, run_periodic
+import g13lib.device.keycodes
 from g13lib.device.g13_usb_device import G13USBDevice
 
 
@@ -77,7 +76,7 @@ class G13Manager:
     def determine_held_keycodes(self, bytes: Sequence[int]):
         """Given a bitmask of held keys, yield the corresponding keycodes."""
         # for each keycode in the keycodes dict
-        for key, (byte, bit_position) in g13lib.data.keycodes.items():
+        for key, (byte, bit_position) in g13lib.device.keycodes.keycodes.items():
             # if the bits set in the keycode are present in bytes
             mask = 1 << (bit_position)
             if bytes[byte] & mask:
