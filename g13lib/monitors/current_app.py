@@ -25,15 +25,10 @@ class AppMonitor(PeriodicComponent):
     """
 
     current_app: str | None
-    last_poll: float
 
     def __init__(self):
         self.current_app = self.detect_current_application()
         self._tasks_to_start = [run_periodic(self.notify, 100, initial_delay_ms=100)]
-
-        self.last_poll = time.time()
-
-        # blinker.signal("tick").connect(self.handle_tick)
 
     def detect_current_application(self) -> str:
         active_app = NSWorkspace.sharedWorkspace().activeApplication()
