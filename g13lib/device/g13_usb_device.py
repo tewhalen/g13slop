@@ -139,8 +139,8 @@ class G13USBDevice:
             elif e.errno in (errno.EPIPE, errno.EIO):  # pipe error?
                 logger.error("USB Error: {}, resetting", e)
                 self.usb_device.reset()
-                raise
-                # return G13USBError(str(e))
+
+                return G13USBError(str(e))
             else:
                 # re-raise the unhandled exception...
                 # maybe handle them in the future?
@@ -161,8 +161,6 @@ class G13USBDevice:
             if status:
                 mask |= 1 << i
 
-        # and the mask with 0x0F
-        # mask = mask & 0x0F
         data = [5, mask, 0, 0, 0]
 
         self.usb_device.ctrl_transfer(
