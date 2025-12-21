@@ -56,17 +56,20 @@ class G13DeviceOutputManager(PeriodicComponent):
             self._lcd_framebuffer = fb_image
             self.g13_usb_device.setLCD(fb_image)
 
-    def toggle_led(self, led_no: int):
+    def toggle_led(self, *leds: int):
         """Toggle the state of the specified LED on the G13 device."""
-        self.led_status[led_no] = 1 - self.led_status[led_no]
+        for led_no in leds:
+            self.led_status[led_no] = 1 - self.led_status[led_no]
         self.g13_usb_device.update_leds(self.led_status)
 
-    def led_on(self, led_no: int):
+    def led_on(self, *leds: int):
         """Turn on the specified LED on the G13 device."""
-        self.led_status[led_no] = 1
+        for led_no in leds:
+            self.led_status[led_no] = 1
         self.g13_usb_device.update_leds(self.led_status)
 
-    def led_off(self, led_no: int):
+    def led_off(self, *leds: int):
         """Turn off the specified LED on the G13 device."""
-        self.led_status[led_no] = 0
+        for led_no in leds:
+            self.led_status[led_no] = 0
         self.g13_usb_device.update_leds(self.led_status)
