@@ -15,6 +15,10 @@ class G13USBError(Exception):
     pass
 
 
+class FatalG13USBError(G13USBError):
+    pass
+
+
 class G13USBDevice:
     """
     Interface for communicating with the Logitech G13 USB device.
@@ -46,8 +50,17 @@ class G13USBDevice:
         self._thread.start()
 
     def _usb_thread_main(self):
-
-        self.start_usb_device()
+        try:
+            self.start_usb_device()
+        except Exception as e:
+            # Initialization or unexpected loop error; notify main thread.
+            try:
+                self.read_queue.put(("error", FatalG13USBError(str(e))))
+            except Exception:
+                # If we cannot report the error, just let the thread exit.
+                pass
+            finally:
+                self.running = False
         while self.running:
             # outgoing commands
             try:
@@ -201,6 +214,8 @@ class G13USBDevice:
         """Close the USB device and stop the USB thread."""
         self.write_queue.put({"type": "stop"})
         self._thread.join()
+        if self._thread.is_alive():
+            logger.warning("Timed out waiting for USB device to shut down.")
 
     def _close(self):
         """Close the USB device and cleanup resources.

@@ -9,7 +9,7 @@ from g13lib.apps.davinci_resolve import DavinciInputManager
 from g13lib.apps.general import GeneralManager
 from g13lib.apps.vscode import VSCodeInputManager
 from g13lib.device.g13_output import G13DeviceOutputManager
-from g13lib.device.g13_usb_device import G13USBDevice, G13USBError
+from g13lib.device.g13_usb_device import FatalG13USBError, G13USBDevice, G13USBError
 from g13lib.device_manager import G13Manager
 from g13lib.input_manager import EndProgram
 from g13lib.monitors.current_app import AppMonitor
@@ -75,6 +75,10 @@ async def read_data_loop(device_manager: G13Manager):
         # read any data waiting for us at the device
         return_value = await device_manager.get_codes()
 
+        if isinstance(return_value, FatalG13USBError):
+            logger.error("Fatal USB Error: {}", return_value)
+
+            raise EndProgram()
         if isinstance(return_value, G13USBError):
             error_count += 1
             logger.error("USB Error: {}", return_value)
