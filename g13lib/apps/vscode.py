@@ -16,9 +16,9 @@ project's pyproject.toml file:
 """
 
 import time
-from pathlib import Path
 
 import blinker
+from anyio import Path as AsyncPath
 from PIL import Image
 
 import g13lib.keylib as keylib
@@ -28,10 +28,10 @@ from g13lib.single_app_manager import SingleAppManager
 
 class PytestOutputMonitor:
     _last_check_time: float = 0.0
-    file_updates: dict[Path, float]
+    file_updates: dict[AsyncPath, float]
     _tasks_to_start: list
 
-    def __init__(self, vs_code_monitor, log_files: list[Path]):
+    def __init__(self, vs_code_monitor, log_files: list[AsyncPath]):
         self.test_output = ""
         self.vs_code_monitor = vs_code_monitor
         self.file_updates = {log_file: 0.0 for log_file in log_files}
@@ -51,16 +51,16 @@ class PytestOutputMonitor:
 
         for file_path, last_mtime in self.file_updates.items():
             try:
-                mtime = file_path.stat().st_mtime
+                mtime = (await file_path.stat()).st_mtime
                 if mtime > last_mtime:
-                    with open(file_path, "r") as f:
-                        new_content = f.read()
-                        self.process_logfile(new_content)
+                    async with await file_path.open("r") as f:
+                        new_content = await f.read()
+                        await self.process_logfile(new_content)
                     self.file_updates[file_path] = mtime
             except FileNotFoundError:
                 continue
 
-    def process_logfile(self, content: str):
+    async def process_logfile(self, content: str):
         # process the content of the logfile and send to g13 terminal
         # it's a pytest junitoutput log in xml format
         # for simplicity, just extract the test results summary
@@ -101,7 +101,7 @@ class VSCodeInputManager(SingleAppManager, PeriodicComponent):
     def __init__(self):
         super().__init__()
         self._pytest_monitor = PytestOutputMonitor(
-            self, [Path("/tmp/test_results.xml")]
+            self, [AsyncPath("/tmp/test_results.xml")]
         )
         self._tasks_to_start = self._pytest_monitor._tasks_to_start
 
