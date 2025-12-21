@@ -3,12 +3,11 @@ from typing import Sequence
 
 import pytest
 
-from g13lib.device_manager import G13Manager
+from g13lib.device.g13_input import G13DeviceInputManager
 
 
 def test_joy_position_parsing():
-    manager = G13Manager(g13_usb_device=mock.MagicMock())
-
+    manager = G13DeviceInputManager(g13_usb_device=mock.MagicMock())
     # Test joystick centered
     codes = list(manager.joy_position_to_codes(0x80, 0x80))
     assert codes == ["JOY_X_ZERO_0", "JOY_Y_ZERO_0"]
@@ -23,7 +22,7 @@ def test_joy_position_parsing():
 
 
 def test_determine_held_keycodes():
-    manager = G13Manager(g13_usb_device=mock.MagicMock())
+    manager = G13DeviceInputManager(g13_usb_device=mock.MagicMock())
 
     # G1-G8 are in byte 3
     # G9-G16 are in byte 4

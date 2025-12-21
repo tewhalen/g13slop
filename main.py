@@ -9,9 +9,9 @@ from loguru import logger
 from g13lib.apps.davinci_resolve import DavinciInputManager
 from g13lib.apps.general import GeneralManager
 from g13lib.apps.vscode import VSCodeInputManager
+from g13lib.device.g13_input import G13DeviceInputManager
 from g13lib.device.g13_output import G13DeviceOutputManager
 from g13lib.device.g13_usb_device import FatalG13USBError, G13USBDevice, G13USBError
-from g13lib.device_manager import G13Manager
 from g13lib.input_manager import EndProgram
 from g13lib.monitors.current_app import AppMonitor
 
@@ -24,7 +24,7 @@ async def main(stop_event: threading.Event | None = None):
 
     usb_device_manager = G13USBDevice()
 
-    device_input_manager = G13Manager(usb_device_manager)
+    device_input_manager = G13DeviceInputManager(usb_device_manager)
     device_output_manager = G13DeviceOutputManager(usb_device_manager)
 
     # we're trying to avoid USB errors on startup
@@ -65,7 +65,7 @@ async def main(stop_event: threading.Event | None = None):
 
 
 async def read_data_loop(
-    device_manager: G13Manager, stop_event: threading.Event | None = None
+    device_manager: G13DeviceInputManager, stop_event: threading.Event | None = None
 ):
     """Currently this is a loop that reads data from the USB device."""
     # probably we should be using an interrupt?

@@ -8,7 +8,7 @@ import g13lib.device.keycodes
 from g13lib.device.g13_usb_device import G13USBDevice
 
 
-class G13Manager:
+class G13DeviceInputManager:
 
     g13_usb_device: G13USBDevice
 
