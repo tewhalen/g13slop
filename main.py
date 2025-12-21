@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import threading
 import time
 
 import blinker
@@ -15,7 +16,7 @@ from g13lib.input_manager import EndProgram
 from g13lib.monitors.current_app import AppMonitor
 
 
-async def main():
+async def main(stop_event: threading.Event | None = None):
 
     # load all the things that listen for signals
     # probably this should be more configurable
@@ -47,7 +48,7 @@ async def main():
 
         # Run core loops and periodic tasks concurrently
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(read_data_loop(device_input_manager))
+            tg.create_task(read_data_loop(device_input_manager, stop_event))
             for listener in _listeners:
                 if hasattr(listener, "start_tasks"):
                     logger.debug("Starting tasks for {}", listener.__class__.__name__)
@@ -63,11 +64,15 @@ async def main():
         usb_device_manager.close()
 
 
-async def read_data_loop(device_manager: G13Manager):
+async def read_data_loop(
+    device_manager: G13Manager, stop_event: threading.Event | None = None
+):
     """Currently this is a loop that reads data from the USB device."""
     # probably we should be using an interrupt?
     error_count = 0
     while True:
+        if stop_event and stop_event.is_set():
+            raise EndProgram()
         if error_count > 5:
             # give up
             raise EndProgram()
