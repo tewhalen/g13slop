@@ -7,6 +7,10 @@ from g13lib.render_fb import LCDCompositor
 from g13lib.single_app_manager import SingleAppManager
 
 
+def get_current_app_icon(*msg) -> Image.Image | None:
+    return blinker.signal("get_current_app_icon").send()[0][1]
+
+
 class DavinciInputManager(SingleAppManager):
     app_name = "DaVinci Resolve"
 
@@ -15,16 +19,19 @@ class DavinciInputManager(SingleAppManager):
     workspace_page: str = "edit"  # "edit", "fusion", "color"
 
     # 32x32 icon for DaVinci Resolve
-    icon = Image.open("icons/davinci_resolve_icon.png")
+    # icon = Image.open("icons/davinci_resolve_icon.png")
 
     def __init__(self):
 
         super().__init__()
 
     def compositor(self):
+        icon = get_current_app_icon()
+        if icon is None:
+            return LCDCompositor(self._terminal)
         return LCDCompositor(
             self._terminal,
-            DecayingImage(self.icon, (64, 0)),
+            DecayingImage(icon, (64, 0)),
         )
 
     def activate(self):

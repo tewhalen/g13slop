@@ -25,10 +25,19 @@ class AppMonitor(PeriodicComponent):
     """
 
     current_app: str | None
+    current_app_icon: Image.Image | None = None
 
     def __init__(self):
         self.current_app = self.detect_current_application()
+
         self._tasks_to_start = [run_periodic(self.notify, 100, initial_delay_ms=100)]
+
+        blinker.signal("get_current_app_icon").connect(
+            self.get_current_application_icon
+        )
+
+    def get_current_application_icon(self, *msg) -> Image.Image | None:
+        return self.current_app_icon
 
     def detect_current_application(self) -> str:
         active_app = NSWorkspace.sharedWorkspace().activeApplication()
@@ -43,7 +52,7 @@ class AppMonitor(PeriodicComponent):
                 icon_image = Image.open(BytesIO(icon.TIFFRepresentation().bytes()))
                 icon_image = trim_image(icon_image)
                 icon_image = icon_image.resize((32, 32), Image.LANCZOS)
-
+                self.current_app_icon = icon_image
                 return icon_image
 
     async def notify(self) -> bool:

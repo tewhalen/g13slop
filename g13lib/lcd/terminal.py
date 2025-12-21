@@ -17,13 +17,22 @@ the L1-L4 keys, for example.) (Set and cleared using the `g13_set_status` and `g
 """
 
 import itertools
+import sys
+from pathlib import Path
 
 import blinker
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from g13lib.render_fb import Layer
 
-spleen_font = ImageFont.load("font/spleen-5x8.pil")
+if getattr(sys, "frozen", False):
+    font_path = Path(sys._MEIPASS) / "font" / "spleen-5x8.pil"
+
+else:
+    font_path = Path(__file__).parent.parent.parent / "font" / "spleen-5x8.pil"
+
+
+spleen_font = ImageFont.load(str(font_path))  # type: ignore
 
 
 class LogEmulator(Layer):
@@ -43,6 +52,8 @@ class LogEmulator(Layer):
     buffer: list[str]
     autowrap: bool = True
     status: str = ""
+
+    active: bool = True
 
     dirty: bool = True
     _image_cache: Image.Image | None = None
@@ -75,21 +86,24 @@ class LogEmulator(Layer):
         return lines
 
     def output(self, raw_line: str):
+        if not self.active:
+            return
         for line in self.split_input(raw_line):
             self.buffer.append(line)
         self.buffer = self.buffer[-self.term_rows :]
         self._invalidate()
-        blinker.signal("g13_framebuffer").send(self.framebuffer())
 
     def set_status(self, status: str):
+        if not self.active:
+            return
         self.status = status
         self._invalidate()
-        blinker.signal("g13_framebuffer").send(self.framebuffer())
 
     def clear_status(self, *msg):
+        if not self.active:
+            return
         self.status = ""
         self._invalidate()
-        blinker.signal("g13_framebuffer").send(self.framebuffer())
 
     def content(self) -> list[str]:
         return ["".join(row) for row in self.buffer]

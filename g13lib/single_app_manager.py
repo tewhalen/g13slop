@@ -21,6 +21,7 @@ class SingleAppManager(InputManager):
         logger.debug("Initializing SingleAppManager for app: {}", self.app_name)
         blinker.signal("app_changed").connect(self.app_changed)
         self._terminal = LogEmulator()
+        self._terminal.active = False
         super().__init__()
 
     def compositor(self):
@@ -30,12 +31,16 @@ class SingleAppManager(InputManager):
 
     def activate(self):
         logger.info("Activating SingleAppManager for app: {}", self.app_name)
-        self.active = True
-        blinker.signal("set_compositor").send(self.compositor())
         blinker.signal("single_focus").send(self.app_name)
+        self.active = True
+        self._terminal.active = True
+        blinker.signal("set_compositor").send(self.compositor())
+
+        # blinker.signal("set_compositor").send(self.compositor())
 
     def deactivate(self):
         self.active = False
+        self._terminal.active = False
         blinker.signal("release_focus").send(self.app_name)
 
     def app_changed(self, app_name: str):
