@@ -56,8 +56,10 @@ class InputManager(PeriodicComponent):
         self.mouse = pynput.mouse.Controller()
         self._previous_joystick_positions = ["JOY_X_ZERO_0", "JOY_Y_ZERO_0"]
 
-        # Connect signals
+        # Connect synchronous signals
         blinker.signal("app_changed").connect(self.app_changed)
+
+        # connect asynchronous signal handlers
         blinker.signal("g13_key").connect(self.handle_keystroke)
         blinker.signal("g13_joy").connect(self.handle_joystick)
 
