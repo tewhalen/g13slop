@@ -18,7 +18,6 @@ class G13Manager:
     _joy_y_zero: bool = True
 
     def __init__(self, g13_usb_device: G13USBDevice):
-        super().__init__()
 
         self.g13_usb_device = g13_usb_device
 

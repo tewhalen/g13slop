@@ -77,6 +77,7 @@ class G13USBDevice:
                     self.running = False
                     continue
             except queue.Empty:
+                # no pending commands
                 pass
 
             # incoming data

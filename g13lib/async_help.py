@@ -39,6 +39,8 @@ class PeriodicComponent:
 
     async def stop_tasks(self):
         """Stop any periodic tasks needed by this component."""
+        if not hasattr(self, "_tasks"):
+            return
         for task in self._tasks:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
